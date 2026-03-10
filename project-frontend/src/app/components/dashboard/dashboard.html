@@ -1,0 +1,30 @@
+<h2>Dashboard</h2>
+
+<table border="1">
+  <thead>
+    <tr>
+      <th>Proveïdor</th>
+      <th>Import Total</th>
+      <th>Data</th>
+      <th>Concepte</th>
+      <th>Categoria</th>
+      <th>Estat</th>
+      <th>Accions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let d of despeses">
+      <td>{{ d.proveidor }}</td>
+      <td>{{ d.importTotal }}</td>
+      <td>{{ d.data | date:'shortDate' }}</td>
+      <td>{{ d.concepte }}</td>
+      <td>{{ d.categoria }}</td>
+      <td>{{ d.estat }}</td>
+      <td>
+        <button (click)="aprovar(d.id)">Aprovar</button>
+        <button (click)="rebutjar(d.id)">Rebutjar</button>
+        <button (click)="eliminar(d.id)">Eliminar</button>
+      </td>
+    </tr>
+  </tbody>
+</table>
