@@ -1,0 +1,243 @@
+<!-- src/app/components/fulles/fulles.html -->
+
+<nav class="navbar">
+  <h1>💼 Gestió Despeses</h1>
+  <div style="display:flex; gap:0.5rem; align-items:center;">
+    <span style="font-size:0.875rem; color:#64748b;">
+      {{ nomUsuari }}
+      <span class="badge" [ngClass]="'badge-' + perfil" style="margin-left:0.5rem;">
+        {{ perfil }}
+      </span>
+    </span>
+    <button (click)="router.navigate(['/despeses'])" class="btn btn-secondary">
+      ← Dashboard
+    </button>
+    <button (click)="logout()" class="btn btn-secondary">Sortir</button>
+  </div>
+</nav>
+
+<div class="container">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+    <h2 style="font-size:1.5rem; font-weight:700;">📋 Fulles de Despesa</h2>
+    @if (!esValidador) {
+      <button (click)="mostrarFormulari = !mostrarFormulari" class="btn btn-primary">
+        @if (mostrarFormulari) { ✕ Cancel·lar } @else { + Nova Fulla }
+      </button>
+    }
+  </div>
+
+  @if (missatge) { <div class="msg-success">{{ missatge }}</div> }
+  @if (error) { <div class="msg-error">{{ error }}</div> }
+
+  <!-- FORMULARI NOVA FULLA -->
+  @if (mostrarFormulari) {
+    <div class="card" style="margin-bottom:1.5rem;">
+      <h3 style="font-size:1rem; font-weight:600; margin-bottom:1rem; color:#94a3b8;">Nova Fulla</h3>
+      <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end;">
+        <label style="font-size:0.875rem; color:#94a3b8; flex:1; min-width:200px;">
+          Títol *
+          <input [(ngModel)]="novaFulla.titol" type="text"
+            placeholder="Ex: Viatge Barcelona" style="margin-top:0.375rem;">
+        </label>
+        <label style="font-size:0.875rem; color:#94a3b8; min-width:150px;">
+          Mes *
+          <select [(ngModel)]="novaFulla.mes" style="margin-top:0.375rem;">
+            <option value="">Selecciona...</option>
+            @for (m of mesos; track m) {
+              <option [value]="m">{{ m }}</option>
+            }
+          </select>
+        </label>
+        <label style="font-size:0.875rem; color:#94a3b8; min-width:100px;">
+          Any
+          <input [(ngModel)]="novaFulla.any" type="number" style="margin-top:0.375rem;">
+        </label>
+        <button (click)="crearFulla()" class="btn btn-success">
+          💾 Crear
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- DETALL FULLA -->
+  @if (fullaSeleccionada) {
+    <div class="card" style="margin-bottom:1.5rem; border-color:#3b82f6;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <div>
+          <h3 style="font-size:1.25rem; font-weight:700;">{{ fullaSeleccionada.titol }}</h3>
+          <p style="color:#64748b; font-size:0.875rem;">
+            {{ fullaSeleccionada.mes }} {{ fullaSeleccionada.any }}
+          </p>
+        </div>
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+          <span class="badge"
+            [ngClass]="fullaSeleccionada.estat === 'aprovat' ? 'badge-aprovat' : fullaSeleccionada.estat === 'rebutjat' ? 'badge-rebutjat' : fullaSeleccionada.estat === 'pendent' ? 'badge-pendent' : 'badge-draft'">
+            {{ fullaSeleccionada.estat }}
+          </span>
+          <button (click)="tancarDetall()" class="btn btn-secondary">✕ Tancar</button>
+        </div>
+      </div>
+
+      <p style="font-size:1.5rem; font-weight:700; color:#3b82f6; margin-bottom:1rem;">
+        Total: {{ getTotal(fullaSeleccionada.despeses) | number:'1.2-2' }} €
+      </p>
+
+      <!-- DESPESES ASSIGNADES -->
+      <h4 style="font-size:0.875rem; color:#94a3b8; margin-bottom:0.75rem;">
+        DESPESES ASSIGNADES ({{ fullaSeleccionada.despeses?.length || 0 }})
+      </h4>
+
+      @if (fullaSeleccionada.despeses?.length === 0) {
+        <p style="color:#475569; font-size:0.875rem; margin-bottom:1rem;">
+          Cap despesa assignada encara
+        </p>
+      } @else {
+        <table style="margin-bottom:1rem;">
+          <thead>
+            <tr>
+              <th>Proveïdor</th>
+              <th>Import</th>
+              <th>Data</th>
+              <th>Categoria</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (d of fullaSeleccionada.despeses; track d.id) {
+              <tr>
+                <td style="font-weight:500;">{{ d.proveidor }}</td>
+                <td style="color:#3b82f6; font-weight:600;">{{ d.importTotal }} €</td>
+                <td>{{ d.data | date:'dd/MM/yyyy' }}</td>
+                <td>{{ d.categoria }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+
+      <!-- AFEGIR DESPESES -->
+      @if (!esValidador && fullaSeleccionada.estat === 'draft') {
+        <h4 style="font-size:0.875rem; color:#94a3b8; margin-bottom:0.75rem;">
+          AFEGIR DESPESES ({{ despesesSenseAssignar.length }} disponibles)
+        </h4>
+
+        @if (despesesSenseAssignar.length === 0) {
+          <p style="color:#475569; font-size:0.875rem; margin-bottom:1rem;">
+            No hi ha despeses sense assignar
+          </p>
+        } @else {
+          <table style="margin-bottom:1rem;">
+            <thead>
+              <tr>
+                <th>Proveïdor</th>
+                <th>Import</th>
+                <th>Data</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (d of despesesSenseAssignar; track d.id) {
+                <tr>
+                  <td>{{ d.proveidor }}</td>
+                  <td style="color:#3b82f6;">{{ d.importTotal }} €</td>
+                  <td>{{ d.data | date:'dd/MM/yyyy' }}</td>
+                  <td>
+                    <button (click)="assignarDespesa(d.id)"
+                      class="btn btn-primary"
+                      style="padding:0.25rem 0.75rem; font-size:0.75rem;">
+                      + Afegir
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+
+        @if (fullaSeleccionada.despeses?.length > 0) {
+          <button (click)="enviarFulla(fullaSeleccionada)" class="btn btn-warning">
+            📤 Enviar a Aprovació
+          </button>
+        }
+      }
+
+      <!-- BOTONS VALIDADOR -->
+      @if (esValidador && fullaSeleccionada.estat === 'pendent') {
+        <div style="display:flex; gap:0.75rem; margin-top:1rem;">
+          <button (click)="aprovarFulla(fullaSeleccionada)" class="btn btn-success">
+            ✅ Aprovar Fulla
+          </button>
+          <button (click)="rebutjarFulla(fullaSeleccionada)" class="btn btn-danger">
+            ❌ Rebutjar Fulla
+          </button>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- LLISTA FULLES -->
+  @if (loading) {
+    <p style="color:#64748b;">Carregant fulles...</p>
+  }
+
+  @if (!loading && fulles.length === 0) {
+    <div class="card" style="text-align:center; padding:3rem;">
+      <p style="font-size:2rem;">📂</p>
+      <p style="color:#64748b; margin-top:0.5rem;">No hi ha fulles de despesa</p>
+    </div>
+  }
+
+  @if (!loading && fulles.length > 0) {
+    <table>
+      <thead>
+        <tr>
+          <th>Títol</th>
+          <th>Mes / Any</th>
+          @if (esValidador) { <th>Usuari</th> }
+          <th>Despeses</th>
+          <th>Total</th>
+          <th>Estat</th>
+          <th>Accions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (f of fulles; track f.id) {
+          <tr>
+            <td style="font-weight:500; color:#e2e8f0;">{{ f.titol }}</td>
+            <td style="color:#94a3b8;">{{ f.mes }} {{ f.any }}</td>
+            @if (esValidador) {
+              <td style="color:#94a3b8;">{{ f.usuari?.nom || '-' }}</td>
+            }
+            <td style="text-align:center;">{{ f.despeses?.length || 0 }}</td>
+            <td style="color:#3b82f6; font-weight:600;">
+              {{ getTotal(f.despeses) | number:'1.2-2' }} €
+            </td>
+            <td>
+              <span class="badge"
+                [ngClass]="f.estat === 'aprovat' ? 'badge-aprovat' : f.estat === 'rebutjat' ? 'badge-rebutjat' : f.estat === 'pendent' ? 'badge-pendent' : 'badge-draft'">
+                {{ f.estat }}
+              </span>
+            </td>
+            <td>
+              <div style="display:flex; gap:0.375rem;">
+                <button (click)="veureFulla(f)" class="btn btn-primary"
+                  style="padding:0.25rem 0.75rem; font-size:0.75rem;">
+                  👁 Veure
+                </button>
+                @if (esValidador && f.estat === 'pendent') {
+                  <button (click)="aprovarFulla(f)" class="btn btn-success"
+                    style="padding:0.25rem 0.6rem; font-size:0.75rem;">✅</button>
+                  <button (click)="rebutjarFulla(f)" class="btn btn-danger"
+                    style="padding:0.25rem 0.6rem; font-size:0.75rem;">❌</button>
+                }
+                @if (!esValidador && f.estat === 'draft') {
+                  <button (click)="eliminarFulla(f)" class="btn btn-danger"
+                    style="padding:0.25rem 0.6rem; font-size:0.75rem;">🗑</button>
+                }
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

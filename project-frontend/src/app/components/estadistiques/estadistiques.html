@@ -1,1 +1,96 @@
-<p>estadistiques works!</p>
+<!-- src/app/components/estadistiques/estadistiques.html -->
+
+<nav class="navbar">
+  <h1>💼 Gestió Despeses</h1>
+  <div style="display:flex; gap:0.5rem; align-items:center;">
+    <span style="font-size:0.875rem; color:#64748b;">
+      {{ nomUsuari }}
+      <span class="badge" [ngClass]="'badge-' + perfil" style="margin-left:0.5rem;">
+        {{ perfil }}
+      </span>
+    </span>
+    <button (click)="router.navigate(['/despeses'])" class="btn btn-secondary">
+      ← Dashboard
+    </button>
+  </div>
+</nav>
+
+<div class="container">
+  <h2 style="font-size:1.5rem; font-weight:700; margin-bottom:1.5rem;">
+    📊 Estadístiques
+  </h2>
+
+  <!-- TARGETES RESUM -->
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; margin-bottom:2rem;">
+
+    <div class="card" style="text-align:center;">
+      <p style="color:#64748b; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">
+        Total General
+      </p>
+      <p style="font-size:2rem; font-weight:700; color:#3b82f6; margin-top:0.5rem;">
+        {{ totalGeneral | number:'1.2-2' }} €
+      </p>
+      <p style="color:#64748b; font-size:0.875rem;">{{ despeses.length }} despeses</p>
+    </div>
+
+    <div class="card" style="text-align:center;">
+      <p style="color:#64748b; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">
+        Aprovat
+      </p>
+      <p style="font-size:2rem; font-weight:700; color:#22c55e; margin-top:0.5rem;">
+        {{ totalAprovat | number:'1.2-2' }} €
+      </p>
+      <p style="color:#64748b; font-size:0.875rem;">
+        {{ countEstat('aprovat') }} despeses
+      </p>
+    </div>
+
+    <div class="card" style="text-align:center;">
+      <p style="color:#64748b; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">
+        Pendent
+      </p>
+      <p style="font-size:2rem; font-weight:700; color:#f59e0b; margin-top:0.5rem;">
+        {{ totalPendent | number:'1.2-2' }} €
+      </p>
+      <p style="color:#64748b; font-size:0.875rem;">{{ totalDraft }} en draft</p>
+    </div>
+
+    <div class="card" style="text-align:center;">
+      <p style="color:#64748b; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">
+        Rebutjat
+      </p>
+      <p style="font-size:2rem; font-weight:700; color:#ef4444; margin-top:0.5rem;">
+        {{ countEstat('rebutjat') }}
+      </p>
+      <p style="color:#64748b; font-size:0.875rem;">despeses rebutjades</p>
+    </div>
+
+  </div>
+
+  <!-- GRÀFICS -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:1.5rem;">
+
+    <div class="card">
+      <h3 style="font-size:0.875rem; color:#94a3b8; margin-bottom:1rem; text-transform:uppercase;">
+        Per Categoria
+      </h3>
+      <canvas #chartCategories style="max-height:250px;"></canvas>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:0.875rem; color:#94a3b8; margin-bottom:1rem; text-transform:uppercase;">
+        Per Estat
+      </h3>
+      <canvas #chartEstats style="max-height:250px;"></canvas>
+    </div>
+
+  </div>
+
+  <div class="card">
+    <h3 style="font-size:0.875rem; color:#94a3b8; margin-bottom:1rem; text-transform:uppercase;">
+      Evolució Mensual
+    </h3>
+    <canvas #chartMensal style="max-height:250px;"></canvas>
+  </div>
+
+</div>

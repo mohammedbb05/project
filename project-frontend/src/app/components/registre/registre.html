@@ -1,1 +1,63 @@
-<p>registre works!</p>
+<!-- src/app/components/register/register.html -->
+<div style="min-height:100vh; display:flex; align-items:center; justify-content:center;">
+  <div class="card" style="width:100%; max-width:400px;">
+
+    <div style="text-align:center; margin-bottom:2rem;">
+      <div style="font-size:2.5rem; margin-bottom:0.5rem;">💼</div>
+      <h2 style="font-size:1.5rem; font-weight:700; color:#e2e8f0;">Crear compte</h2>
+      <p style="color:#64748b; font-size:0.875rem; margin-top:0.25rem;">
+        Gestió Intel·ligent de Despeses
+      </p>
+    </div>
+
+    @if (errorMsg) {
+      <div class="msg-error">{{ errorMsg }}</div>
+    }
+
+    <div style="display:flex; flex-direction:column; gap:1rem;">
+
+      <label style="font-size:0.875rem; color:#94a3b8;">
+        Nom complet
+        <input type="text" [(ngModel)]="nom" name="nom"
+          placeholder="Joan Garcia"
+          style="margin-top:0.375rem;">
+      </label>
+
+      <label style="font-size:0.875rem; color:#94a3b8;">
+        Email
+        <input type="email" [(ngModel)]="email" name="email"
+          placeholder="usuari@empresa.com"
+          style="margin-top:0.375rem;">
+      </label>
+
+      <label style="font-size:0.875rem; color:#94a3b8;">
+        Contrasenya
+        <input type="password" [(ngModel)]="password" name="password"
+          placeholder="••••••••"
+          style="margin-top:0.375rem;">
+      </label>
+
+      <label style="font-size:0.875rem; color:#94a3b8;">
+        Confirma contrasenya
+        <input type="password" [(ngModel)]="confirmPassword" name="confirmPassword"
+          placeholder="••••••••"
+          style="margin-top:0.375rem;"
+          (keyup.enter)="register()">
+      </label>
+
+      <button (click)="register()" class="btn btn-primary" [disabled]="loading"
+        style="width:100%; padding:0.75rem; font-size:1rem; margin-top:0.5rem;">
+        @if (loading) { ⏳ Registrant... } @else { Crear compte → }
+      </button>
+
+      <p style="text-align:center; color:#64748b; font-size:0.875rem;">
+        Ja tens compte?
+        <a (click)="router.navigate(['/login'])"
+          style="color:#3b82f6; cursor:pointer; text-decoration:underline;">
+          Inicia sessió
+        </a>
+      </p>
+
+    </div>
+  </div>
+</div>

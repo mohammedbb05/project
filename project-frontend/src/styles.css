@@ -1,1 +1,156 @@
-/* You can add global styles to this file, and also import other style files */
+/* src/styles.css */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #0f1117;
+  color: #e2e8f0;
+  min-height: 100vh;
+}
+
+/* BOTONS */
+.btn {
+  padding: 0.5rem 1.2rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.btn:hover { opacity: 0.85; transform: translateY(-1px); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.btn-primary   { background: #3b82f6; color: white; }
+.btn-success   { background: #22c55e; color: white; }
+.btn-warning   { background: #f59e0b; color: black; }
+.btn-danger    { background: #ef4444; color: white; }
+.btn-purple    { background: #8b5cf6; color: white; }
+.btn-secondary { background: #374151; color: #e2e8f0; border: 1px solid #4b5563; }
+
+/* INPUTS */
+input, select, textarea {
+  background: #1e2130;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  color: #e2e8f0;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+/* TAULES */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #1a1d2e;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+thead tr {
+  background: #1e2130;
+}
+
+th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+td {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #1e2130;
+  font-size: 0.875rem;
+  color: #cbd5e1;
+}
+
+tr:hover td {
+  background: #1e2130;
+}
+
+/* CARDS */
+.card {
+  background: #1a1d2e;
+  border: 1px solid #2d3148;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+/* NAVBAR */
+.navbar {
+  background: #1a1d2e;
+  border-bottom: 1px solid #2d3148;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.navbar h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #3b82f6;
+}
+
+/* BADGE ESTAT */
+.badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-draft    { background: #374151; color: #9ca3af; }
+.badge-pendent  { background: #78350f; color: #fcd34d; }
+.badge-aprovat  { background: #14532d; color: #86efac; }
+.badge-rebutjat { background: #7f1d1d; color: #fca5a5; }
+
+/* BADGE PERFIL */
+.badge-usuari    { background: #1e3a5f; color: #93c5fd; }
+.badge-validador { background: #1e1b4b; color: #a5b4fc; }
+.badge-admin     { background: #3b0764; color: #d8b4fe; }
+
+/* CONTAINER */
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+/* MISSATGES */
+.msg-success {
+  background: #14532d;
+  color: #86efac;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.msg-error {
+  background: #7f1d1d;
+  color: #fca5a5;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}

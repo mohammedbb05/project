@@ -7,27 +7,47 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Usuari {
-  id       Int    @id @default(autoincrement())
-  nom      String
-  email    String @unique
-  password String
-  perfil   String
-  despeses Despesa[]
+model despesa {
+  id            Int           @id @default(autoincrement())
+  proveidor     String
+  cif           String
+  importTotal   Float
+  iva           Float?
+  baseImposable Float?
+  data          DateTime
+  concepte      String
+  categoria     String
+  urlImatge     String
+  usuariId      Int
+  estat         String        @default("draft")
+  fullaId       Int?
+  usuari        usuari        @relation(fields: [usuariId], references: [id], map: "Despesa_usuariId_fkey")
+  fulla         FullaDespesa? @relation(fields: [fullaId], references: [id])
+
+  @@index([usuariId], map: "Despesa_usuariId_fkey")
+  @@index([fullaId])
 }
 
-model Despesa {
-  id          Int      @id @default(autoincrement())
-  proveidor   String
-  cif         String
-  importTotal Float
-  iva         Float?
-  baseImposable Float?
-  data        DateTime
-  concepte    String
-  categoria   String
-  urlImatge   String
-  usuariId    Int
-  estat       String   @default("draft")
-  usuari      Usuari   @relation(fields: [usuariId], references: [id])
+model usuari {
+  id       Int            @id @default(autoincrement())
+  nom      String
+  email    String         @unique(map: "Usuari_email_key")
+  password String
+  perfil   String
+  despesa  despesa[]
+  fulles   FullaDespesa[]
+}
+
+model FullaDespesa {
+  id        Int       @id @default(autoincrement())
+  titol     String
+  mes       String
+  any       Int
+  estat     String    @default("draft")
+  usuariId  Int
+  createdAt DateTime  @default(now())
+  usuari    usuari    @relation(fields: [usuariId], references: [id])
+  despeses  despesa[]
+
+  @@index([usuariId])
 }

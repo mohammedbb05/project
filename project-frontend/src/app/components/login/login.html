@@ -1,15 +1,45 @@
-<h2>Login</h2>
+<!-- src/app/components/login/login.html -->
+<div style="min-height:100vh; display:flex; align-items:center; justify-content:center;">
+  <div class="card" style="width:100%; max-width:400px;">
 
-<form (ngSubmit)="login()">
-  <label>Email</label>
-  <input type="email" [(ngModel)]="email" name="email" required>
+    <div style="text-align:center; margin-bottom:2rem;">
+      <div style="font-size:2.5rem; margin-bottom:0.5rem;">💼</div>
+      <h2 style="font-size:1.5rem; font-weight:700; color:#e2e8f0;">Gestió de Despeses</h2>
+      <p style="color:#64748b; font-size:0.875rem; margin-top:0.25rem;">Inicia sessió per continuar</p>
+    </div>
 
-  <br><br>
+    @if (errorMsg) {
+      <div class="msg-error">{{ errorMsg }}</div>
+    }
 
-  <label>Password</label>
-  <input type="password" [(ngModel)]="password" name="password" required>
+    <div style="display:flex; flex-direction:column; gap:1rem;">
+      <label style="font-size:0.875rem; color:#94a3b8;">
+        Email
+        <input type="email" [(ngModel)]="email" name="email"
+          placeholder="usuari@empresa.com"
+          style="margin-top:0.375rem;">
+      </label>
 
-  <br><br>
+      <label style="font-size:0.875rem; color:#94a3b8;">
+        Contrasenya
+        <input type="password" [(ngModel)]="password" name="password"
+          placeholder="••••••••"
+          style="margin-top:0.375rem;"
+          (keyup.enter)="login()">
+      </label>
 
-  <button type="submit">Login</button>
-</form>
+      <button (click)="login()" class="btn btn-primary"
+        style="width:100%; padding:0.75rem; font-size:1rem; margin-top:0.5rem;">
+        Entrar →
+      </button>
+    </div>
+    <p style="text-align:center; color:#64748b; font-size:0.875rem; margin-top:1rem;">
+  No tens compte?
+  <a (click)="router.navigate(['/register'])"
+    style="color:#3b82f6; cursor:pointer; text-decoration:underline;">
+    Crea'n un
+  </a>
+</p>
+
+  </div>
+</div>
