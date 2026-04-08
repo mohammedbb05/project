@@ -9,7 +9,6 @@ export class DespesaService {
 
   constructor(private http: HttpClient) {}
 
-  // ✅ Sense headers — l'interceptor els afegeix sol
   login(email: string, password: string): Observable<any> {
     return this.http.post(`${this.baseUrl}/login`, { email, password });
   }
@@ -29,16 +28,16 @@ export class DespesaService {
   deleteDespesa(id: number): Observable<any> {
     return this.http.delete(`${this.baseUrl}/despesa/${id}`);
   }
-   
+
   ocrDespesa(fitxer: File): Observable<any> {
-  const formData = new FormData();
-  formData.append('imatge', fitxer);
-  return this.http.post(`${this.baseUrl}/ocr`, formData);
+    const formData = new FormData();
+    formData.append('imatge', fitxer);
+    return this.http.post(`${this.baseUrl}/ocr`, formData);
   }
 
   register(nom: string, email: string, password: string): Observable<any> {
-  return this.http.post(`${this.baseUrl}/users`, { nom, email, password, perfil: 'usuari' });
-}
+    return this.http.post(`${this.baseUrl}/users`, { nom, email, password, perfil: 'usuari' });
+  }
 
   aprovarDespesa(id: number): Observable<any> {
     return this.http.post(`${this.baseUrl}/despesa/${id}/aprovar`, {});
@@ -47,4 +46,25 @@ export class DespesaService {
   rebutjarDespesa(id: number): Observable<any> {
     return this.http.post(`${this.baseUrl}/despesa/${id}/rebutjar`, {});
   }
+
+  getPressupost(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/pressupost`);
+  }
+
+  getUsuaris(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/users`);
+  }
+
+  updatePressupost(userId: number, pressupost: number): Observable<any> {
+    return this.http.put(`${this.baseUrl}/pressupost/${userId}`, { pressupost });
+  }
+
+  // ✅ NOU
+  getNotificacions(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/notificacions`);
+  }
+
+  rebutjarDespesaAmbComentari(id: number, comentari: string): Observable<any> {
+  return this.http.post(`${this.baseUrl}/despesa/${id}/rebutjar`, { comentari });
+}
 }

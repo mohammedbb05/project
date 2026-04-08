@@ -34,12 +34,27 @@ export class OcrFormComponent {
     urlImatge: ''
   };
 
-  categories = ['Dietes', 'Gasolina', 'Transport', 'Parking', 'Oficina', 'Altres'];
+  categories = ['Dietes', 'Gasolina', 'Transport', 'Parking', 'Restaurant', 'Oficina', 'Altres'];
 
   private platformId = inject(PLATFORM_ID);
   private despesaService = inject(DespesaService);
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
+
+  // ✅ Validació dies laborables
+  esDiaLaboral(data: string): boolean {
+    const dia = new Date(data)
+    const diaSemana = dia.getDay() // 0=diumenge, 6=dissabte
+    return diaSemana !== 0 && diaSemana !== 6
+  }
+
+  onDataCanvi() {
+    if (this.despesa.data && !this.esDiaLaboral(this.despesa.data)) {
+      this.error = '⚠️ Atenció: la data seleccionada és cap de setmana. Les despeses laborals haurien de ser en dies feiners.'
+    } else {
+      this.error = ''
+    }
+  }
 
   // Quan l'usuari selecciona una imatge
   onFitxerSeleccionat(event: any) {
@@ -70,7 +85,6 @@ export class OcrFormComponent {
 
     this.despesaService.ocrDespesa(this.fitxerSeleccionat).subscribe({
       next: (res: any) => {
-        // ✅ Omple el formulari amb les dades de la IA
         const d = res.dades;
         this.despesa.proveidor = d.proveidor || '';
         this.despesa.cif = d.cif || '';
@@ -81,6 +95,11 @@ export class OcrFormComponent {
         this.despesa.concepte = d.concepte || '';
         this.despesa.categoria = d.categoria || 'Altres';
         this.despesa.urlImatge = res.urlImatge || '';
+
+        // ✅ Comprova si la data és cap de setmana
+        if (this.despesa.data && !this.esDiaLaboral(this.despesa.data)) {
+          this.error = '⚠️ Atenció: la data del tiquet és cap de setmana!'
+        }
 
         this.loadingOcr = false;
         this.missatge = '✅ Dades extretes! Revisa i confirma.';
@@ -110,7 +129,6 @@ export class OcrFormComponent {
         this.missatge = '✅ Despesa guardada correctament!';
         this.loading = false;
         this.cdr.detectChanges();
-        // Redirigeix al dashboard després de 1.5s
         setTimeout(() => this.router.navigate(['/despeses']), 1500);
       },
       error: (err: any) => {

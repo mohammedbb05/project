@@ -21,6 +21,7 @@ model despesa {
   usuariId      Int
   estat         String        @default("draft")
   fullaId       Int?
+  comentari     String?       // ✅ NOU
   usuari        usuari        @relation(fields: [usuariId], references: [id], map: "Despesa_usuariId_fkey")
   fulla         FullaDespesa? @relation(fields: [fullaId], references: [id])
 
@@ -29,13 +30,14 @@ model despesa {
 }
 
 model usuari {
-  id       Int            @id @default(autoincrement())
-  nom      String
-  email    String         @unique(map: "Usuari_email_key")
-  password String
-  perfil   String
-  despesa  despesa[]
-  fulles   FullaDespesa[]
+  id         Int            @id @default(autoincrement())
+  nom        String
+  email      String         @unique(map: "Usuari_email_key")
+  password   String
+  perfil     String
+  pressupost Float          @default(1000)
+  despesa    despesa[]
+  fulles     FullaDespesa[]
 }
 
 model FullaDespesa {

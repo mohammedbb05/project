@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `usuari` ADD COLUMN `pressupost` DOUBLE NOT NULL DEFAULT 1000;

@@ -75,7 +75,13 @@
       <label style="font-size:0.875rem; color:#94a3b8;">
         Data *
         <input [(ngModel)]="despesa.data" name="data" type="date"
+          (change)="onDataCanvi()"
           style="margin-top:0.375rem;">
+        @if (despesa.data && !esDiaLaboral(despesa.data)) {
+          <span style="color:#f59e0b; font-size:0.75rem; margin-top:0.25rem; display:block;">
+            ⚠️ Cap de setmana
+          </span>
+        }
       </label>
 
       <label style="font-size:0.875rem; color:#94a3b8;">

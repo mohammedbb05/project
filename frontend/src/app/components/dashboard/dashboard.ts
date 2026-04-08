@@ -1,13 +1,14 @@
 // src/app/components/dashboard/dashboard.ts
 import { Component, inject, PLATFORM_ID, ChangeDetectorRef, OnInit } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { DespesaService } from '../../services/despesa';
 import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.css']
 })
@@ -20,6 +21,21 @@ export class DashboardComponent implements OnInit {
   // ✅ Rols
   perfil = '';
   nomUsuari = '';
+
+  // ✅ Pressupost
+  pressupost = 0;
+  totalGastat = 0;
+  restant = 0;
+  percentatge = 0;
+
+  // ✅ Notificacions
+  notificacions = 0;
+  mostrarNotificacions = false;
+  despesesPendents: any[] = [];
+
+  // ✅ Comentaris
+  mostrarComentari: { [key: number]: boolean } = {};
+  comentariText: { [key: number]: string } = {};
 
   private platformId = inject(PLATFORM_ID);
   private despesaService = inject(DespesaService);
@@ -38,14 +54,14 @@ export class DashboardComponent implements OnInit {
       return;
     }
 
-    // ✅ Carrega perfil i nom
     this.perfil = localStorage.getItem('perfil') || 'usuari';
     this.nomUsuari = localStorage.getItem('nom') || '';
 
     this.loadDespeses();
+    this.loadPressupost();
+    this.loadNotificacions();
   }
 
-  // ✅ Getters de rol
   get esValidador(): boolean {
     return this.perfil === 'validador' || this.perfil === 'admin';
   }
@@ -82,11 +98,56 @@ export class DashboardComponent implements OnInit {
     });
   }
 
+  loadPressupost() {
+    if (this.perfil !== 'usuari') return;
+
+    this.despesaService.getPressupost().subscribe({
+      next: (res: any) => {
+        this.pressupost = res.pressupost;
+        this.totalGastat = res.totalGastat;
+        this.restant = res.restant;
+        this.percentatge = res.percentatge;
+        this.cdr.detectChanges();
+      },
+      error: () => {}
+    });
+  }
+
+  loadNotificacions() {
+    if (!this.esValidador) return;
+
+    this.despesaService.getNotificacions().subscribe({
+      next: (res: any) => {
+        this.notificacions = res.count;
+        this.cdr.detectChanges();
+      },
+      error: () => {}
+    });
+  }
+
+  toggleNotificacions() {
+    this.mostrarNotificacions = !this.mostrarNotificacions;
+    if (this.mostrarNotificacions) {
+      this.despesesPendents = this.despeses.filter(
+        d => d.estat === 'draft' || d.estat === 'pendent'
+      );
+    }
+    this.cdr.detectChanges();
+  }
+
+  toggleComentari(id: number) {
+    this.mostrarComentari[id] = !this.mostrarComentari[id];
+    if (!this.comentariText[id]) this.comentariText[id] = '';
+    this.cdr.detectChanges();
+  }
+
   aprovar(despesa: any) {
     this.despesaService.aprovarDespesa(despesa.id).subscribe({
       next: () => {
         despesa.estat = 'aprovat';
         this.despeses = [...this.despeses];
+        this.notificacions = Math.max(0, this.notificacions - 1);
+        this.mostrarNotificacions = false;
         this.cdr.detectChanges();
       },
       error: (err: any) => console.error('Error aprovant:', err)
@@ -98,6 +159,24 @@ export class DashboardComponent implements OnInit {
       next: () => {
         despesa.estat = 'rebutjat';
         this.despeses = [...this.despeses];
+        this.notificacions = Math.max(0, this.notificacions - 1);
+        this.mostrarNotificacions = false;
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => console.error('Error rebutjant:', err)
+    });
+  }
+
+  rebutjarAmbComentari(despesa: any) {
+    const comentari = this.comentariText[despesa.id] || '';
+    this.despesaService.rebutjarDespesaAmbComentari(despesa.id, comentari).subscribe({
+      next: () => {
+        despesa.estat = 'rebutjat';
+        despesa.comentari = comentari;
+        this.mostrarComentari[despesa.id] = false;
+        this.despeses = [...this.despeses];
+        this.notificacions = Math.max(0, this.notificacions - 1);
+        this.mostrarNotificacions = false;
         this.cdr.detectChanges();
       },
       error: (err: any) => console.error('Error rebutjant:', err)
@@ -116,6 +195,32 @@ export class DashboardComponent implements OnInit {
         error: (err: any) => console.error('Error eliminant:', err)
       });
     }
+  }
+
+  exportarCSV() {
+    const headers = ['Proveïdor', 'Import', 'Data', 'Concepte', 'Categoria', 'Estat', 'Usuari', 'Comentari']
+    const files = this.despeses.map(d => [
+      d.proveidor,
+      d.importTotal,
+      new Date(d.data).toLocaleDateString('ca'),
+      d.concepte,
+      d.categoria,
+      d.estat,
+      d.usuari?.nom || '-',
+      d.comentari || ''
+    ])
+
+    const contingut = [headers, ...files]
+      .map(fila => fila.map(cel => `"${cel}"`).join(','))
+      .join('\n')
+
+    const blob = new Blob([contingut], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `despeses_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   logout() {
