@@ -5,7 +5,9 @@ import dotenv from "dotenv"
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 import fs from "fs"
+import path from "path"
 import axios from "axios"
+import FormData from "form-data"
 import { PrismaClient } from "@prisma/client"
 import { authenticate, requirePerfil } from "./middleware/auth.js"
 import { upload } from "./middleware/upload.js"
@@ -29,6 +31,85 @@ const enviarNotificacio = async (data) => {
     console.log('Notificació enviada ✅')
   } catch (err) {
     console.log('Webhook n8n no disponible:', err.message)
+  }
+}
+
+// ----------------------
+// HELPER — OAuth2 DocuWare (token via username/password)
+// ----------------------
+const getDocuwareAuth = async () => {
+  const params = new URLSearchParams({
+    grant_type: 'password',
+    username: process.env.DOCUWARE_USER,
+    password: process.env.DOCUWARE_PASSWORD,
+    scope: 'docuware.platform',
+    client_id: 'docuware.platform.net.client'
+  })
+
+  const res = await axios.post(
+    process.env.DOCUWARE_TOKEN_URL,
+    params.toString(),
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+  )
+
+  if (!res.data?.access_token)
+    throw new Error(`DocuWare OAuth failed: ${JSON.stringify(res.data)}`)
+
+  console.log('DocuWare auth via OAuth2 ✅')
+  return { type: 'token', value: res.data.access_token }
+}
+
+// ----------------------
+// HELPER — Puja document a DocuWare
+// ----------------------
+const subirADocuware = async (filePath, metadata) => {
+  try {
+    const auth = await getDocuwareAuth()
+    const cabinetId = process.env.DOCUWARE_CABINET_ID
+
+    const indexFields = [
+      { FieldName: 'DOCUMENT_TYPE', Item: 'Despesa',                                                                         ItemElementName: 'String'  },
+      { FieldName: 'COMPANY',       Item: metadata.proveidor || '',                                                          ItemElementName: 'String'  },
+      { FieldName: 'DATE',          Item: metadata.data ? new Date(metadata.data).toISOString() : new Date().toISOString(),  ItemElementName: 'Date'    },
+      { FieldName: 'SUBJECT',       Item: metadata.concepte || '',                                                           ItemElementName: 'String'  },
+      { FieldName: 'STATUS',        Item: 'draft',                                                                           ItemElementName: 'String'  },
+      { FieldName: 'AMOUNT',        Item: parseFloat(metadata.importTotal) || 0,                                             ItemElementName: 'Decimal' },
+      { FieldName: 'VAT_ID',        Item: metadata.cif || '',                                                                ItemElementName: 'String'  },
+      { FieldName: 'PROJECT',       Item: metadata.categoria || '',                                                          ItemElementName: 'String'  },
+    ]
+
+    const form = new FormData()
+    form.append('document', JSON.stringify({ Fields: indexFields }), {
+      contentType: 'application/json'
+    })
+
+    const fileBuffer = fs.readFileSync(filePath)
+    const fileName = path.basename(filePath)
+    const mimeType = fileName.match(/\.(jpg|jpeg)$/i) ? 'image/jpeg' :
+                     fileName.match(/\.png$/i)        ? 'image/png'  :
+                     fileName.match(/\.pdf$/i)        ? 'application/pdf' : 'application/octet-stream'
+
+    form.append('file[]', fileBuffer, { filename: fileName, contentType: mimeType })
+
+    const uploadRes = await axios.post(
+      `${process.env.DOCUWARE_URL}/DocuWare/Platform/FileCabinets/${cabinetId}/Documents`,
+      form,
+      {
+        headers: {
+          ...form.getHeaders(),
+          'Authorization': `Bearer ${auth.value}`,
+          'Accept': 'application/json'
+        }
+      }
+    )
+
+    const docId = uploadRes.data?.Id
+    console.log(`Document pujat a DocuWare ✅ ID: ${docId}`)
+    return docId
+
+  } catch (err) {
+    console.error('Error pujant a DocuWare:', err.response?.data || err.message)
+    return null
   }
 }
 
@@ -138,7 +219,7 @@ Retorna NOMÉS el JSON, sense cap text addicional, amb aquesta estructura exacta
 })
 
 // ----------------------
-// LLEGIR DESPESES ✅ retorna comentari
+// LLEGIR DESPESES
 // ----------------------
 app.get("/despesa", authenticate, async (req, res) => {
   try {
@@ -149,7 +230,6 @@ app.get("/despesa", authenticate, async (req, res) => {
         include: { usuari: { select: { nom: true, email: true } } }
       })
     } else {
-      // ✅ select explícit per incloure comentari
       despeses = await prisma.despesa.findMany({
         where: { usuariId: req.user.id },
         select: {
@@ -166,7 +246,7 @@ app.get("/despesa", authenticate, async (req, res) => {
           usuariId: true,
           estat: true,
           fullaId: true,
-          comentari: true  // ✅ inclòs
+          comentari: true
         }
       })
     }
@@ -179,7 +259,7 @@ app.get("/despesa", authenticate, async (req, res) => {
 })
 
 // ----------------------
-// CREAR DESPESA
+// CREAR DESPESA + PUJAR A DOCUWARE
 // ----------------------
 app.post("/despesa", authenticate, async (req, res) => {
   try {
@@ -201,6 +281,31 @@ app.post("/despesa", authenticate, async (req, res) => {
       }
     })
 
+    // Pujar imatge a DocuWare en segon pla
+    if (urlImatge) {
+      const filename = urlImatge.split('/uploads/')[1]
+      if (filename) {
+        const filePath = path.join('uploads', filename)
+        if (fs.existsSync(filePath)) {
+          subirADocuware(filePath, { proveidor, cif, importTotal, data, categoria, concepte })
+            .then(async (docuwareId) => {
+              if (docuwareId) {
+                try {
+                  await prisma.despesa.update({
+                    where: { id: despesa.id },
+                    data: { docuwareId: String(docuwareId) }
+                  })
+                  console.log(`Despesa ${despesa.id} vinculada a DocuWare ID ${docuwareId}`)
+                } catch {
+                  console.log(`DocuWare OK però camp docuwareId no existeix. Executa: npx prisma db push`)
+                }
+              }
+            })
+            .catch(err => console.error('Error DocuWare background:', err.message))
+        }
+      }
+    }
+
     const validadors = await prisma.usuari.findMany({
       where: { perfil: { in: ['validador', 'admin'] } },
       select: { nom: true, email: true }
@@ -210,8 +315,8 @@ app.post("/despesa", authenticate, async (req, res) => {
       await enviarNotificacio({
         nomUsuari: validador.nom,
         emailUsuari: validador.email,
-        proveidor: proveidor,
-        importTotal: importTotal,
+        proveidor,
+        importTotal,
         subject: `🆕 Nova despesa pendent d'aprovació`,
         missatge: `L'usuari ${usuariCreador.nom} ha creat una nova despesa de ${importTotal}€ a ${proveidor}. Accedeix al sistema per revisar-la i aprovar-la.`
       })
@@ -298,7 +403,7 @@ app.post("/despesa/:id/aprovar", authenticate, requirePerfil('validador', 'admin
 })
 
 // ----------------------
-// REBUTJAR DESPESA ✅ amb comentari
+// REBUTJAR DESPESA
 // ----------------------
 app.post("/despesa/:id/rebutjar", authenticate, requirePerfil('validador', 'admin'), async (req, res) => {
   try {
