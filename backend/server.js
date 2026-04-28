@@ -1,4 +1,3 @@
-// server.js
 import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
@@ -17,14 +16,16 @@ dotenv.config()
 const app = express()
 const prisma = new PrismaClient()
 const PORT = process.env.PORT || 3000
+const SERVER_URL = process.env.SERVER_URL || `http://localhost:${PORT}`
 
 app.use(cors({ origin: "http://localhost:4200" }))
 app.use(express.json())
 app.use('/uploads', express.static('uploads'))
 
-// ----------------------
-// HELPER — Envia notificació
-// ----------------------
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+
 const enviarNotificacio = async (data) => {
   try {
     await axios.post('http://localhost:5678/webhook/despesa-aprovada', data)
@@ -34,9 +35,6 @@ const enviarNotificacio = async (data) => {
   }
 }
 
-// ----------------------
-// HELPER — OAuth2 DocuWare (token via username/password)
-// ----------------------
 const getDocuwareAuth = async () => {
   const params = new URLSearchParams({
     grant_type: 'password',
@@ -45,51 +43,49 @@ const getDocuwareAuth = async () => {
     scope: 'docuware.platform',
     client_id: 'docuware.platform.net.client'
   })
-
   const res = await axios.post(
     process.env.DOCUWARE_TOKEN_URL,
     params.toString(),
     { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
   )
-
   if (!res.data?.access_token)
     throw new Error(`DocuWare OAuth failed: ${JSON.stringify(res.data)}`)
-
   console.log('DocuWare auth via OAuth2 ✅')
   return { type: 'token', value: res.data.access_token }
 }
 
-// ----------------------
-// HELPER — Puja document a DocuWare
-// ----------------------
 const subirADocuware = async (filePath, metadata) => {
   try {
     const auth = await getDocuwareAuth()
     const cabinetId = process.env.DOCUWARE_CABINET_ID
+    const fileName = path.basename(filePath)
 
     const indexFields = [
-      { FieldName: 'DOCUMENT_TYPE', Item: 'Despesa',                                                                         ItemElementName: 'String'  },
-      { FieldName: 'COMPANY',       Item: metadata.proveidor || '',                                                          ItemElementName: 'String'  },
-      { FieldName: 'DATE',          Item: metadata.data ? new Date(metadata.data).toISOString() : new Date().toISOString(),  ItemElementName: 'Date'    },
-      { FieldName: 'SUBJECT',       Item: metadata.concepte || '',                                                           ItemElementName: 'String'  },
-      { FieldName: 'STATUS',        Item: 'draft',                                                                           ItemElementName: 'String'  },
-      { FieldName: 'AMOUNT',        Item: parseFloat(metadata.importTotal) || 0,                                             ItemElementName: 'Decimal' },
-      { FieldName: 'VAT_ID',        Item: metadata.cif || '',                                                                ItemElementName: 'String'  },
-      { FieldName: 'PROJECT',       Item: metadata.categoria || '',                                                          ItemElementName: 'String'  },
-    ]
+  { FieldName: 'DOCUMENT_TYPE',       Item: metadata.tipusDocument === 'factura' ? 'Factura' : 'Tiquet',  ItemElementName: 'String'  }, // ✅ 'Tiquet' o 'Factura' en lloc de sempre 'Despesa'
+  { FieldName: 'TIPUS_DOCUMENT',      Item: metadata.tipusDocument || 'tiquet',                           ItemElementName: 'String'  }, // ✅ camp addicional per filtrar
+  { FieldName: 'STATUS',              Item: 'draft',                                                      ItemElementName: 'String'  },
+  { FieldName: 'DOCUMENT_DATE',       Item: metadata.data ? new Date(metadata.data).toISOString() : new Date().toISOString(), ItemElementName: 'Date' },
+  { FieldName: 'TOTAL_REIMBURSEMENT', Item: parseFloat(metadata.importTotal) || 0,                        ItemElementName: 'Decimal' },
+  { FieldName: 'COMMENT',             Item: metadata.concepte || '',                                      ItemElementName: 'String'  },
+  { FieldName: 'USER_ID',             Item: String(metadata.usuariId || ''),                              ItemElementName: 'String'  },
+]
+
+    const documentJson = JSON.stringify({ Fields: indexFields })
 
     const form = new FormData()
-    form.append('document', JSON.stringify({ Fields: indexFields }), {
-      contentType: 'application/json'
+    form.append('document', documentJson, {
+      contentType: 'application/json',
+      filename: 'document.json'          // ← alguns DocuWare necessiten filename
     })
 
     const fileBuffer = fs.readFileSync(filePath)
-    const fileName = path.basename(filePath)
     const mimeType = fileName.match(/\.(jpg|jpeg)$/i) ? 'image/jpeg' :
                      fileName.match(/\.png$/i)        ? 'image/png'  :
                      fileName.match(/\.pdf$/i)        ? 'application/pdf' : 'application/octet-stream'
 
     form.append('file[]', fileBuffer, { filename: fileName, contentType: mimeType })
+
+    console.log('Pujant a DocuWare amb fields:', JSON.stringify(indexFields, null, 2))
 
     const uploadRes = await axios.post(
       `${process.env.DOCUWARE_URL}/DocuWare/Platform/FileCabinets/${cabinetId}/Documents`,
@@ -103,35 +99,52 @@ const subirADocuware = async (filePath, metadata) => {
       }
     )
 
+    console.log('DocuWare response:', JSON.stringify(uploadRes.data, null, 2))
+
     const docId = uploadRes.data?.Id
     console.log(`Document pujat a DocuWare ✅ ID: ${docId}`)
     return docId
-
   } catch (err) {
     console.error('Error pujant a DocuWare:', err.response?.data || err.message)
     return null
   }
 }
 
-// ----------------------
-// REGISTRE USUARI
-// ----------------------
+const actualitzarEstatDocuware = async (docuwareId, estat) => {
+  try {
+    const auth = await getDocuwareAuth()
+    const cabinetId = process.env.DOCUWARE_CABINET_ID
+    await axios.put(
+      `${process.env.DOCUWARE_URL}/DocuWare/Platform/FileCabinets/${cabinetId}/Documents/${docuwareId}/Fields`,
+      { Field: [{ FieldName: 'STATUS', Item: estat, ItemElementName: 'String' }] },
+      {
+        headers: {
+          'Authorization': `Bearer ${auth.value}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      }
+    )
+    console.log(`DocuWare estat actualitzat a "${estat}" per document ${docuwareId} ✅`)
+  } catch (err) {
+    console.error('Error actualitzant estat DocuWare:', err.response?.data || err.message)
+  }
+}
+
+// ─────────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────────
+
 app.post("/users", async (req, res) => {
   try {
     const { nom, email, password, perfil } = req.body
     if (!nom || !email || !password)
       return res.status(400).json({ error: "Falten camps obligatoris" })
-
     const hashedPassword = await bcrypt.hash(password, 10)
     const user = await prisma.usuari.create({
       data: { nom, email, password: hashedPassword, perfil: perfil || "usuari" }
     })
-
-    const token = jwt.sign(
-      { userId: user.id, perfil: user.perfil },
-      process.env.JWT_SECRET,
-      { expiresIn: "24h" }
-    )
+    const token = jwt.sign({ userId: user.id, perfil: user.perfil }, process.env.JWT_SECRET, { expiresIn: "24h" })
     res.json({ user: { id: user.id, nom: user.nom, email: user.email, perfil: user.perfil }, token })
   } catch (error) {
     console.error(error)
@@ -139,28 +152,16 @@ app.post("/users", async (req, res) => {
   }
 })
 
-// ----------------------
-// LOGIN
-// ----------------------
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body
     if (!email || !password)
       return res.status(400).json({ error: "Falten camps" })
-
     const user = await prisma.usuari.findUnique({ where: { email } })
-    if (!user)
-      return res.status(401).json({ error: "Usuari no trobat" })
-
+    if (!user) return res.status(401).json({ error: "Usuari no trobat" })
     const validPassword = await bcrypt.compare(password, user.password)
-    if (!validPassword)
-      return res.status(401).json({ error: "Password incorrecte" })
-
-    const token = jwt.sign(
-      { userId: user.id, perfil: user.perfil },
-      process.env.JWT_SECRET,
-      { expiresIn: "24h" }
-    )
+    if (!validPassword) return res.status(401).json({ error: "Password incorrecte" })
+    const token = jwt.sign({ userId: user.id, perfil: user.perfil }, process.env.JWT_SECRET, { expiresIn: "24h" })
     res.json({ user: { id: user.id, nom: user.nom, email: user.email, perfil: user.perfil }, token })
   } catch (error) {
     console.error(error)
@@ -168,13 +169,13 @@ app.post("/login", async (req, res) => {
   }
 })
 
-// ----------------------
+// ─────────────────────────────────────────────
 // OCR
-// ----------------------
+// ─────────────────────────────────────────────
+
 app.post("/ocr", authenticate, upload.single('imatge'), async (req, res) => {
   try {
-    if (!req.file)
-      return res.status(400).json({ error: "Cal pujar una imatge" })
+    if (!req.file) return res.status(400).json({ error: "Cal pujar una imatge" })
 
     const imageBuffer = fs.readFileSync(req.file.path)
     const base64Image = imageBuffer.toString('base64')
@@ -188,7 +189,9 @@ app.post("/ocr", authenticate, upload.single('imatge'), async (req, res) => {
           role: 'user',
           content: [
             { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } },
-            { type: 'text', text: `Analitza aquest tiquet o factura i extreu les dades en format JSON.
+            {
+              type: 'text',
+              text: `Analitza aquest tiquet o factura i extreu les dades en format JSON.
 Retorna NOMÉS el JSON, sense cap text addicional, amb aquesta estructura exacta:
 {
   "proveidor": "nom de l'empresa o establiment",
@@ -198,8 +201,10 @@ Retorna NOMÉS el JSON, sense cap text addicional, amb aquesta estructura exacta
   "baseImposable": número amb decimals (o null si no apareix),
   "data": "data en format YYYY-MM-DD",
   "concepte": "descripció breu del que s'ha comprat",
-  "categoria": "una d'aquestes: Dietes, Gasolina, Transport, Parking, Restaurant, Oficina, Altres"
-}` }
+  "categoria": "una d'aquestes: Dietes, Gasolina, Transport, Parking, Restaurant, Oficina, Altres",
+  "tipusDocument": "tiquet si és un rebut simple sense CIF/IVA desglossat, factura si té CIF i desglosament d'IVA"
+}`
+            }
           ]
         }]
       },
@@ -209,29 +214,33 @@ Retorna NOMÉS el JSON, sense cap text addicional, amb aquesta estructura exacta
     const content = response.data.choices[0].message.content
     const cleanJson = content.replace(/```json|```/g, '').trim()
     const dadesExtretes = JSON.parse(cleanJson)
-
-    res.json({ dades: dadesExtretes, urlImatge: `http://localhost:3000/uploads/${req.file.filename}` })
-
+    const urlImatge = `${SERVER_URL}/uploads/${req.file.filename}`
+    res.json({ dades: dadesExtretes, urlImatge })
   } catch (error) {
     console.error('Error OCR:', error.response?.data || error.message)
     res.status(500).json({ error: "Error processant la imatge" })
   }
 })
 
-// ----------------------
-// LLEGIR DESPESES
-// ----------------------
+// ─────────────────────────────────────────────
+// DESPESES
+// ─────────────────────────────────────────────
+
+// GET /despesa — Llista les despeses
 app.get("/despesa", authenticate, async (req, res) => {
   try {
-    let despeses
+    const { tipus } = req.query
+    const whereBase = tipus ? { tipusDocument: tipus } : {}
 
+    let despeses
     if (req.user.perfil === 'admin' || req.user.perfil === 'validador') {
       despeses = await prisma.despesa.findMany({
+        where: whereBase,
         include: { usuari: { select: { nom: true, email: true } } }
       })
     } else {
       despeses = await prisma.despesa.findMany({
-        where: { usuariId: req.user.id },
+        where: { ...whereBase, usuariId: req.user.id },
         select: {
           id: true,
           proveidor: true,
@@ -246,11 +255,13 @@ app.get("/despesa", authenticate, async (req, res) => {
           usuariId: true,
           estat: true,
           fullaId: true,
-          comentari: true
+          comentari: true,
+          docuwareId: true,
+          tipusDocument: true,   
+          createdAt: true 
         }
       })
     }
-
     res.json({ despeses })
   } catch (error) {
     console.error(error)
@@ -258,14 +269,19 @@ app.get("/despesa", authenticate, async (req, res) => {
   }
 })
 
-// ----------------------
-// CREAR DESPESA + PUJAR A DOCUWARE
-// ----------------------
+// POST /despesa — Crea una nova despesa
 app.post("/despesa", authenticate, async (req, res) => {
   try {
-    const { proveidor, cif, importTotal, iva, baseImposable, data, concepte, categoria, urlImatge } = req.body
+    const { proveidor, cif, importTotal, iva, baseImposable, data, concepte, categoria, urlImatge, tipusDocument } = req.body
+
     if (!proveidor || !importTotal || !data || !concepte || !categoria)
       return res.status(400).json({ error: "Falten camps obligatoris" })
+
+    if (tipusDocument === 'factura' && !cif)
+      return res.status(400).json({ error: "Les factures requereixen CIF" })
+
+    // ✅ FIX: normalitza el tipus i sempre el guarda
+    const tipusValid = tipusDocument === 'factura' ? 'factura' : 'tiquet'
 
     const usuariCreador = await prisma.usuari.findUnique({
       where: { id: req.user.id },
@@ -274,20 +290,30 @@ app.post("/despesa", authenticate, async (req, res) => {
 
     const despesa = await prisma.despesa.create({
       data: {
-        proveidor, cif: cif || "", importTotal,
-        iva: iva || null, baseImposable: baseImposable || null,
-        data: new Date(data), concepte, categoria,
-        urlImatge: urlImatge || "", usuariId: req.user.id, estat: "draft"
+        proveidor,
+        cif: cif || "",
+        importTotal,
+        iva: iva || null,
+        baseImposable: baseImposable || null,
+        data: new Date(data),
+        concepte,
+        categoria,
+        urlImatge: urlImatge || "",
+        usuariId: req.user.id,
+        estat: "draft",
+        tipusDocument: tipusValid   // ✅ FIX: ara es guarda correctament
       }
     })
 
-    // Pujar imatge a DocuWare en segon pla
     if (urlImatge) {
       const filename = urlImatge.split('/uploads/')[1]
       if (filename) {
         const filePath = path.join('uploads', filename)
         if (fs.existsSync(filePath)) {
-          subirADocuware(filePath, { proveidor, cif, importTotal, data, categoria, concepte })
+          subirADocuware(filePath, {
+            proveidor, cif, importTotal, data, categoria, concepte,
+            usuariId: req.user.id, tipusDocument: tipusValid
+          })
             .then(async (docuwareId) => {
               if (docuwareId) {
                 try {
@@ -297,7 +323,7 @@ app.post("/despesa", authenticate, async (req, res) => {
                   })
                   console.log(`Despesa ${despesa.id} vinculada a DocuWare ID ${docuwareId}`)
                 } catch {
-                  console.log(`DocuWare OK però camp docuwareId no existeix. Executa: npx prisma db push`)
+                  console.log(`DocuWare OK però camp docuwareId no existeix.`)
                 }
               }
             })
@@ -310,15 +336,13 @@ app.post("/despesa", authenticate, async (req, res) => {
       where: { perfil: { in: ['validador', 'admin'] } },
       select: { nom: true, email: true }
     })
-
     for (const validador of validadors) {
       await enviarNotificacio({
         nomUsuari: validador.nom,
         emailUsuari: validador.email,
-        proveidor,
-        importTotal,
-        subject: `🆕 Nova despesa pendent d'aprovació`,
-        missatge: `L'usuari ${usuariCreador.nom} ha creat una nova despesa de ${importTotal}€ a ${proveidor}. Accedeix al sistema per revisar-la i aprovar-la.`
+        proveidor, importTotal,
+        subject: `🆕 Nova ${tipusValid} pendent d'aprovació`,
+        missatge: `L'usuari ${usuariCreador.nom} ha creat una nova ${tipusValid} de ${importTotal}€ a ${proveidor}.`
       })
     }
 
@@ -329,18 +353,14 @@ app.post("/despesa", authenticate, async (req, res) => {
   }
 })
 
-// ----------------------
-// EDITAR DESPESA
-// ----------------------
+// PUT /despesa/:id — Edita una despesa existent
 app.put("/despesa/:id", authenticate, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
     const despesa = await prisma.despesa.findUnique({ where: { id } })
-    if (!despesa)
-      return res.status(404).json({ error: "Despesa no trobada" })
+    if (!despesa) return res.status(404).json({ error: "Despesa no trobada" })
     if (despesa.usuariId !== req.user.id && req.user.perfil !== 'admin' && req.user.perfil !== 'validador')
       return res.status(403).json({ error: "No tens permís per editar" })
-
     const updated = await prisma.despesa.update({ where: { id }, data: req.body })
     res.json(updated)
   } catch (error) {
@@ -349,19 +369,14 @@ app.put("/despesa/:id", authenticate, async (req, res) => {
   }
 })
 
-// ----------------------
-// ELIMINAR DESPESA
-// ----------------------
+// DELETE /despesa/:id — Elimina una despesa
 app.delete("/despesa/:id", authenticate, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
     const despesa = await prisma.despesa.findUnique({ where: { id } })
-    if (!despesa)
-      return res.status(404).json({ error: "Despesa no trobada" })
-
+    if (!despesa) return res.status(404).json({ error: "Despesa no trobada" })
     if (req.user.perfil !== 'admin' && req.user.perfil !== 'validador' && despesa.usuariId !== req.user.id)
       return res.status(403).json({ error: "No tens permís per eliminar" })
-
     await prisma.despesa.delete({ where: { id } })
     res.json({ message: "Despesa eliminada correctament" })
   } catch (error) {
@@ -370,31 +385,20 @@ app.delete("/despesa/:id", authenticate, async (req, res) => {
   }
 })
 
-// ----------------------
-// APROVAR DESPESA
-// ----------------------
+// POST /despesa/:id/aprovar
 app.post("/despesa/:id/aprovar", authenticate, requirePerfil('validador', 'admin'), async (req, res) => {
   try {
     const id = parseInt(req.params.id)
-    const despesa = await prisma.despesa.findUnique({
-      where: { id }, include: { usuari: true }
-    })
-    if (!despesa)
-      return res.status(404).json({ error: "Despesa no trobada" })
-
-    const updated = await prisma.despesa.update({
-      where: { id }, data: { estat: "aprovat" }
-    })
-
+    const despesa = await prisma.despesa.findUnique({ where: { id }, include: { usuari: true } })
+    if (!despesa) return res.status(404).json({ error: "Despesa no trobada" })
+    const updated = await prisma.despesa.update({ where: { id }, data: { estat: "aprovat" } })
+    if (despesa.docuwareId) await actualitzarEstatDocuware(despesa.docuwareId, 'aprovat')
     await enviarNotificacio({
-      nomUsuari: despesa.usuari.nom,
-      emailUsuari: despesa.usuari.email,
-      proveidor: despesa.proveidor,
-      importTotal: despesa.importTotal,
+      nomUsuari: despesa.usuari.nom, emailUsuari: despesa.usuari.email,
+      proveidor: despesa.proveidor, importTotal: despesa.importTotal,
       subject: `✅ Despesa aprovada`,
       missatge: `La teva despesa de ${despesa.importTotal}€ a ${despesa.proveidor} ha estat aprovada. ✅`
     })
-
     res.json(updated)
   } catch (error) {
     console.error(error)
@@ -402,33 +406,24 @@ app.post("/despesa/:id/aprovar", authenticate, requirePerfil('validador', 'admin
   }
 })
 
-// ----------------------
-// REBUTJAR DESPESA
-// ----------------------
+// POST /despesa/:id/rebutjar
 app.post("/despesa/:id/rebutjar", authenticate, requirePerfil('validador', 'admin'), async (req, res) => {
   try {
     const id = parseInt(req.params.id)
     const { comentari } = req.body
-    const despesa = await prisma.despesa.findUnique({
-      where: { id }, include: { usuari: true }
-    })
-    if (!despesa)
-      return res.status(404).json({ error: "Despesa no trobada" })
-
+    const despesa = await prisma.despesa.findUnique({ where: { id }, include: { usuari: true } })
+    if (!despesa) return res.status(404).json({ error: "Despesa no trobada" })
     const updated = await prisma.despesa.update({
       where: { id },
       data: { estat: "rebutjat", comentari: comentari || null }
     })
-
+    if (despesa.docuwareId) await actualitzarEstatDocuware(despesa.docuwareId, 'rebutjat')
     await enviarNotificacio({
-      nomUsuari: despesa.usuari.nom,
-      emailUsuari: despesa.usuari.email,
-      proveidor: despesa.proveidor,
-      importTotal: despesa.importTotal,
+      nomUsuari: despesa.usuari.nom, emailUsuari: despesa.usuari.email,
+      proveidor: despesa.proveidor, importTotal: despesa.importTotal,
       subject: `❌ Despesa rebutjada`,
       missatge: `La teva despesa de ${despesa.importTotal}€ a ${despesa.proveidor} ha estat rebutjada. ${comentari ? 'Motiu: ' + comentari : ''} ❌`
     })
-
     res.json(updated)
   } catch (error) {
     console.error(error)
@@ -436,14 +431,14 @@ app.post("/despesa/:id/rebutjar", authenticate, requirePerfil('validador', 'admi
   }
 })
 
-// ----------------------
-// FILTRAR DESPESES
-// ----------------------
+// ─────────────────────────────────────────────
+// FILTRE AVANÇAT
+// ─────────────────────────────────────────────
+
 app.get("/despesa/filter", authenticate, async (req, res) => {
   try {
     const { estat, categoria, data_inici, data_fi } = req.query
     const where = {}
-
     if (req.user.perfil === 'usuari') where.usuariId = req.user.id
     if (estat) where.estat = estat
     if (categoria) where.categoria = categoria
@@ -452,7 +447,6 @@ app.get("/despesa/filter", authenticate, async (req, res) => {
       if (data_inici) where.data.gte = new Date(data_inici)
       if (data_fi) where.data.lte = new Date(data_fi)
     }
-
     const despeses = await prisma.despesa.findMany({ where })
     res.json({ despeses })
   } catch (error) {
@@ -461,15 +455,14 @@ app.get("/despesa/filter", authenticate, async (req, res) => {
   }
 })
 
-// ----------------------
-// ESTADÍSTIQUES PER CATEGORIA
-// ----------------------
+// ─────────────────────────────────────────────
+// ESTADÍSTIQUES
+// ─────────────────────────────────────────────
+
 app.get("/estadistiques/categoria", authenticate, async (req, res) => {
   try {
     const where = req.user.perfil === 'usuari' ? { usuariId: req.user.id } : {}
-    const categories = await prisma.despesa.groupBy({
-      by: ["categoria"], where, _sum: { importTotal: true }
-    })
+    const categories = await prisma.despesa.groupBy({ by: ["categoria"], where, _sum: { importTotal: true } })
     res.json({ categories })
   } catch (error) {
     console.error(error)
@@ -477,9 +470,6 @@ app.get("/estadistiques/categoria", authenticate, async (req, res) => {
   }
 })
 
-// ----------------------
-// TOTAL DESPESES
-// ----------------------
 app.get("/estadistiques/total", authenticate, async (req, res) => {
   try {
     const where = req.user.perfil === 'usuari' ? { usuariId: req.user.id } : {}
@@ -491,9 +481,10 @@ app.get("/estadistiques/total", authenticate, async (req, res) => {
   }
 })
 
-// ----------------------
-// LLISTAR USUARIS
-// ----------------------
+// ─────────────────────────────────────────────
+// USUARIS
+// ─────────────────────────────────────────────
+
 app.get("/users", authenticate, requirePerfil('admin', 'validador'), async (req, res) => {
   try {
     const usuaris = await prisma.usuari.findMany({
@@ -506,15 +497,15 @@ app.get("/users", authenticate, requirePerfil('admin', 'validador'), async (req,
   }
 })
 
-// ----------------------
-// FULLES DE DESPESA
-// ----------------------
+// ─────────────────────────────────────────────
+// FULLES DE DESPESES
+// ─────────────────────────────────────────────
+
 app.post("/fulla", authenticate, async (req, res) => {
   try {
     const { titol, mes, any } = req.body
     if (!titol || !mes || !any)
       return res.status(400).json({ error: "Falten camps obligatoris" })
-
     const fulla = await prisma.fullaDespesa.create({
       data: { titol, mes, any: parseInt(any), estat: "draft", usuariId: req.user.id }
     })
@@ -528,7 +519,6 @@ app.post("/fulla", authenticate, async (req, res) => {
 app.get("/fulla", authenticate, async (req, res) => {
   try {
     let fulles
-
     if (req.user.perfil === 'admin' || req.user.perfil === 'validador') {
       fulles = await prisma.fullaDespesa.findMany({
         include: { usuari: { select: { nom: true, email: true } }, despeses: true }
@@ -539,7 +529,6 @@ app.get("/fulla", authenticate, async (req, res) => {
         include: { despeses: true }
       })
     }
-
     res.json({ fulles })
   } catch (error) {
     console.error(error)
@@ -566,11 +555,9 @@ app.post("/fulla/:id/despesa/:despesaId", authenticate, async (req, res) => {
   try {
     const fullaId = parseInt(req.params.id)
     const despesaId = parseInt(req.params.despesaId)
-
     const fulla = await prisma.fullaDespesa.findUnique({ where: { id: fullaId } })
     if (!fulla) return res.status(404).json({ error: "Fulla no trobada" })
     if (fulla.usuariId !== req.user.id) return res.status(403).json({ error: "No tens permís" })
-
     const despesa = await prisma.despesa.update({ where: { id: despesaId }, data: { fullaId } })
     res.json({ despesa })
   } catch (error) {
@@ -582,30 +569,22 @@ app.post("/fulla/:id/despesa/:despesaId", authenticate, async (req, res) => {
 app.post("/fulla/:id/enviar", authenticate, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
-    const fulla = await prisma.fullaDespesa.findUnique({
-      where: { id }, include: { usuari: true }
-    })
+    const fulla = await prisma.fullaDespesa.findUnique({ where: { id }, include: { usuari: true } })
     if (!fulla) return res.status(404).json({ error: "Fulla no trobada" })
     if (fulla.usuariId !== req.user.id) return res.status(403).json({ error: "No tens permís" })
-
     const updated = await prisma.fullaDespesa.update({ where: { id }, data: { estat: "pendent" } })
-
     const validadors = await prisma.usuari.findMany({
       where: { perfil: { in: ['validador', 'admin'] } },
       select: { nom: true, email: true }
     })
-
     for (const validador of validadors) {
       await enviarNotificacio({
-        nomUsuari: validador.nom,
-        emailUsuari: validador.email,
-        proveidor: fulla.titol,
-        importTotal: 0,
+        nomUsuari: validador.nom, emailUsuari: validador.email,
+        proveidor: fulla.titol, importTotal: 0,
         subject: `📋 Nova fulla pendent d'aprovació`,
-        missatge: `L'usuari ${fulla.usuari.nom} ha enviat la fulla "${fulla.titol}" per aprovació. Accedeix al sistema per revisar-la.`
+        missatge: `L'usuari ${fulla.usuari.nom} ha enviat la fulla "${fulla.titol}" per aprovació.`
       })
     }
-
     res.json({ fulla: updated })
   } catch (error) {
     console.error(error)
@@ -620,20 +599,18 @@ app.post("/fulla/:id/aprovar", authenticate, requirePerfil('validador', 'admin')
       where: { id }, include: { usuari: true, despeses: true }
     })
     if (!fulla) return res.status(404).json({ error: "Fulla no trobada" })
-
     await prisma.despesa.updateMany({ where: { fullaId: id }, data: { estat: "aprovat" } })
     const updated = await prisma.fullaDespesa.update({ where: { id }, data: { estat: "aprovat" } })
-
+    for (const despesa of fulla.despeses) {
+      if (despesa.docuwareId) await actualitzarEstatDocuware(despesa.docuwareId, 'aprovat')
+    }
     const totalFulla = fulla.despeses?.reduce((acc, d) => acc + d.importTotal, 0) || 0
     await enviarNotificacio({
-      nomUsuari: fulla.usuari.nom,
-      emailUsuari: fulla.usuari.email,
-      proveidor: fulla.titol,
-      importTotal: totalFulla,
+      nomUsuari: fulla.usuari.nom, emailUsuari: fulla.usuari.email,
+      proveidor: fulla.titol, importTotal: totalFulla,
       subject: `✅ Fulla de despeses aprovada`,
-      missatge: `La teva fulla de despeses "${fulla.titol}" de ${totalFulla}€ ha estat aprovada. ✅`
+      missatge: `La teva fulla "${fulla.titol}" de ${totalFulla}€ ha estat aprovada. ✅`
     })
-
     res.json({ fulla: updated })
   } catch (error) {
     console.error(error)
@@ -648,20 +625,18 @@ app.post("/fulla/:id/rebutjar", authenticate, requirePerfil('validador', 'admin'
       where: { id }, include: { usuari: true, despeses: true }
     })
     if (!fulla) return res.status(404).json({ error: "Fulla no trobada" })
-
     await prisma.despesa.updateMany({ where: { fullaId: id }, data: { estat: "rebutjat" } })
     const updated = await prisma.fullaDespesa.update({ where: { id }, data: { estat: "rebutjat" } })
-
+    for (const despesa of fulla.despeses) {
+      if (despesa.docuwareId) await actualitzarEstatDocuware(despesa.docuwareId, 'rebutjat')
+    }
     const totalFulla = fulla.despeses?.reduce((acc, d) => acc + d.importTotal, 0) || 0
     await enviarNotificacio({
-      nomUsuari: fulla.usuari.nom,
-      emailUsuari: fulla.usuari.email,
-      proveidor: fulla.titol,
-      importTotal: totalFulla,
+      nomUsuari: fulla.usuari.nom, emailUsuari: fulla.usuari.email,
+      proveidor: fulla.titol, importTotal: totalFulla,
       subject: `❌ Fulla de despeses rebutjada`,
-      missatge: `La teva fulla de despeses "${fulla.titol}" ha estat rebutjada. ❌`
+      missatge: `La teva fulla "${fulla.titol}" ha estat rebutjada. ❌`
     })
-
     res.json({ fulla: updated })
   } catch (error) {
     console.error(error)
@@ -674,10 +649,8 @@ app.delete("/fulla/:id", authenticate, async (req, res) => {
     const id = parseInt(req.params.id)
     const fulla = await prisma.fullaDespesa.findUnique({ where: { id } })
     if (!fulla) return res.status(404).json({ error: "Fulla no trobada" })
-
     if (req.user.perfil !== 'admin' && req.user.perfil !== 'validador' && fulla.usuariId !== req.user.id)
       return res.status(403).json({ error: "No tens permís" })
-
     await prisma.despesa.updateMany({ where: { fullaId: id }, data: { fullaId: null } })
     await prisma.fullaDespesa.delete({ where: { id } })
     res.json({ message: "Fulla eliminada correctament" })
@@ -687,24 +660,22 @@ app.delete("/fulla/:id", authenticate, async (req, res) => {
   }
 })
 
-// ----------------------
-// PRESSUPOST USUARI
-// ----------------------
+// ─────────────────────────────────────────────
+// PRESSUPOST
+// ─────────────────────────────────────────────
+
 app.get("/pressupost", authenticate, async (req, res) => {
   try {
     const usuari = await prisma.usuari.findUnique({
       where: { id: req.user.id },
       select: { pressupost: true, nom: true }
     })
-
     const despeses = await prisma.despesa.findMany({
       where: { usuariId: req.user.id, estat: { not: 'rebutjat' } }
     })
-
     const totalGastat = despeses.reduce((acc, d) => acc + d.importTotal, 0)
     const restant = usuari.pressupost - totalGastat
     const percentatge = Math.round((totalGastat / usuari.pressupost) * 100)
-
     res.json({ pressupost: usuari.pressupost, totalGastat, restant, percentatge })
   } catch (error) {
     console.error(error)
@@ -716,12 +687,10 @@ app.put("/pressupost/:userId", authenticate, requirePerfil('admin', 'validador')
   try {
     const userId = parseInt(req.params.userId)
     const { pressupost } = req.body
-
     const updated = await prisma.usuari.update({
       where: { id: userId },
       data: { pressupost: parseFloat(pressupost) }
     })
-
     res.json({ usuari: { id: updated.id, nom: updated.nom, pressupost: updated.pressupost } })
   } catch (error) {
     console.error(error)
@@ -729,19 +698,16 @@ app.put("/pressupost/:userId", authenticate, requirePerfil('admin', 'validador')
   }
 })
 
-// ----------------------
+// ─────────────────────────────────────────────
 // NOTIFICACIONS
-// ----------------------
+// ─────────────────────────────────────────────
+
 app.get("/notificacions", authenticate, async (req, res) => {
   try {
     let count = 0
-
     if (req.user.perfil === 'validador' || req.user.perfil === 'admin') {
-      count = await prisma.despesa.count({
-        where: { estat: { in: ['draft', 'pendent'] } }
-      })
+      count = await prisma.despesa.count({ where: { estat: { in: ['draft', 'pendent'] } } })
     }
-
     res.json({ count })
   } catch (error) {
     console.error(error)
@@ -749,7 +715,8 @@ app.get("/notificacions", authenticate, async (req, res) => {
   }
 })
 
-// ----------------------
-// START SERVER
-// ----------------------
+// ─────────────────────────────────────────────
+// ARRENCADA DEL SERVIDOR
+// ─────────────────────────────────────────────
+
 app.listen(PORT, () => console.log(`Servidor al port ${PORT}`))

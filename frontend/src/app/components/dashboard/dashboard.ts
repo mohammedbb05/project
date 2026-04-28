@@ -1,4 +1,3 @@
-// src/app/components/dashboard/dashboard.ts
 import { Component, inject, PLATFORM_ID, ChangeDetectorRef, OnInit } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -15,27 +14,27 @@ import { Router } from '@angular/router';
 export class DashboardComponent implements OnInit {
 
   despeses: any[] = [];
+  tiquets: any[] = [];
+  factures: any[] = [];
   loading = true;
   error = '';
 
-  // ✅ Rols
   perfil = '';
   nomUsuari = '';
 
-  // ✅ Pressupost
   pressupost = 0;
   totalGastat = 0;
   restant = 0;
   percentatge = 0;
 
-  // ✅ Notificacions
   notificacions = 0;
   mostrarNotificacions = false;
   despesesPendents: any[] = [];
 
-  // ✅ Comentaris
   mostrarComentari: { [key: number]: boolean } = {};
   comentariText: { [key: number]: string } = {};
+
+  pestanya: 'tots' | 'tiquets' | 'factures' = 'tots';
 
   private platformId = inject(PLATFORM_ID);
   private despesaService = inject(DespesaService);
@@ -47,16 +46,13 @@ export class DashboardComponent implements OnInit {
       this.loading = false;
       return;
     }
-
     const token = localStorage.getItem('token');
     if (!token) {
       this.router.navigate(['/login']);
       return;
     }
-
     this.perfil = localStorage.getItem('perfil') || 'usuari';
     this.nomUsuari = localStorage.getItem('nom') || '';
-
     this.loadDespeses();
     this.loadPressupost();
     this.loadNotificacions();
@@ -70,27 +66,30 @@ export class DashboardComponent implements OnInit {
     return this.perfil === 'admin';
   }
 
+  get despesesMostrades(): any[] {
+    if (this.pestanya === 'tiquets') return this.tiquets;
+    if (this.pestanya === 'factures') return this.factures;
+    return this.despeses;
+  }
+
   loadDespeses() {
     this.loading = true;
     this.error = '';
-
     this.despesaService.getDespeses().subscribe({
       next: (res: any) => {
         this.despeses = [...(res.despeses || [])];
+        this.tiquets = this.despeses.filter(d => d.tipusDocument === 'tiquet' || !d.tipusDocument);
+        this.factures = this.despeses.filter(d => d.tipusDocument === 'factura');
         this.loading = false;
         this.cdr.detectChanges();
       },
       error: (err: any) => {
         console.error('ERROR carregant despeses:', err);
-
         if (err.status === 401 || err.status === 403) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('perfil');
-          localStorage.removeItem('nom');
+          localStorage.clear();
           this.router.navigate(['/login']);
           return;
         }
-
         this.error = 'Error carregant despeses';
         this.loading = false;
         this.cdr.detectChanges();
@@ -100,7 +99,6 @@ export class DashboardComponent implements OnInit {
 
   loadPressupost() {
     if (this.perfil !== 'usuari') return;
-
     this.despesaService.getPressupost().subscribe({
       next: (res: any) => {
         this.pressupost = res.pressupost;
@@ -115,7 +113,6 @@ export class DashboardComponent implements OnInit {
 
   loadNotificacions() {
     if (!this.esValidador) return;
-
     this.despesaService.getNotificacions().subscribe({
       next: (res: any) => {
         this.notificacions = res.count;
@@ -128,9 +125,7 @@ export class DashboardComponent implements OnInit {
   toggleNotificacions() {
     this.mostrarNotificacions = !this.mostrarNotificacions;
     if (this.mostrarNotificacions) {
-      this.despesesPendents = this.despeses.filter(
-        d => d.estat === 'draft' || d.estat === 'pendent'
-      );
+      this.despesesPendents = this.despeses.filter(d => d.estat === 'draft' || d.estat === 'pendent');
     }
     this.cdr.detectChanges();
   }
@@ -185,11 +180,12 @@ export class DashboardComponent implements OnInit {
 
   eliminar(despesa: any) {
     if (!isPlatformBrowser(this.platformId)) return;
-
     if (confirm('Segur que vols eliminar aquesta despesa?')) {
       this.despesaService.deleteDespesa(despesa.id).subscribe({
         next: () => {
           this.despeses = this.despeses.filter(d => d.id !== despesa.id);
+          this.tiquets = this.tiquets.filter(d => d.id !== despesa.id);
+          this.factures = this.factures.filter(d => d.id !== despesa.id);
           this.cdr.detectChanges();
         },
         error: (err: any) => console.error('Error eliminant:', err)
@@ -198,36 +194,35 @@ export class DashboardComponent implements OnInit {
   }
 
   exportarCSV() {
-    const headers = ['Proveïdor', 'Import', 'Data', 'Concepte', 'Categoria', 'Estat', 'Usuari', 'Comentari']
-    const files = this.despeses.map(d => [
+    // ✅ NOU: s'afegeix la columna 'Data Creació' al CSV
+    const headers = ['Tipus', 'Proveïdor', 'Import', 'Data', 'Data Creació', 'Concepte', 'Categoria', 'Estat', 'Usuari', 'Comentari'];
+    const files = this.despesesMostrades.map(d => [
+      d.tipusDocument || 'tiquet',
       d.proveidor,
       d.importTotal,
       new Date(d.data).toLocaleDateString('ca'),
+      d.createdAt ? new Date(d.createdAt).toLocaleString('ca') : '-',  // ✅ NOU
       d.concepte,
       d.categoria,
       d.estat,
       d.usuari?.nom || '-',
       d.comentari || ''
-    ])
-
+    ]);
     const contingut = [headers, ...files]
       .map(fila => fila.map(cel => `"${cel}"`).join(','))
-      .join('\n')
-
-    const blob = new Blob([contingut], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `despeses_${new Date().toISOString().split('T')[0]}.csv`
-    link.click()
-    URL.revokeObjectURL(url)
+      .join('\n');
+    const blob = new Blob([contingut], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${this.pestanya}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   logout() {
     if (isPlatformBrowser(this.platformId)) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('perfil');
-      localStorage.removeItem('nom');
+      localStorage.clear();
     }
     this.router.navigate(['/login']);
   }

@@ -1,5 +1,12 @@
 {
-  "dependencies": {
-    "form-data": "^4.0.5"
+  "name": "project",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "backend": "cd backend && node server.js",
+    "frontend": "cd frontend && ng serve"
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0"
   }
 }

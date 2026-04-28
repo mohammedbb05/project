@@ -1,4 +1,3 @@
-// src/app/components/ocr-form/ocr-form.ts
 import { Component, inject, PLATFORM_ID, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -13,7 +12,6 @@ import { DespesaService } from '../../services/despesa';
   styleUrls: ['./ocr-form.css']
 })
 export class OcrFormComponent {
-  // Estats
   loading = false;
   loadingOcr = false;
   missatge = '';
@@ -21,7 +19,6 @@ export class OcrFormComponent {
   imatgePreview: string | null = null;
   fitxerSeleccionat: File | null = null;
 
-  // Dades del formulari
   despesa = {
     proveidor: '',
     cif: '',
@@ -31,7 +28,8 @@ export class OcrFormComponent {
     data: '',
     concepte: '',
     categoria: 'Altres',
-    urlImatge: ''
+    urlImatge: '',
+    tipusDocument: 'tiquet'
   };
 
   categories = ['Dietes', 'Gasolina', 'Transport', 'Parking', 'Restaurant', 'Oficina', 'Altres'];
@@ -41,29 +39,24 @@ export class OcrFormComponent {
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
 
-  // ✅ Validació dies laborables
   esDiaLaboral(data: string): boolean {
-    const dia = new Date(data)
-    const diaSemana = dia.getDay() // 0=diumenge, 6=dissabte
-    return diaSemana !== 0 && diaSemana !== 6
+    const dia = new Date(data);
+    const diaSemana = dia.getDay();
+    return diaSemana !== 0 && diaSemana !== 6;
   }
 
   onDataCanvi() {
     if (this.despesa.data && !this.esDiaLaboral(this.despesa.data)) {
-      this.error = '⚠️ Atenció: la data seleccionada és cap de setmana. Les despeses laborals haurien de ser en dies feiners.'
+      this.error = '⚠️ Atenció: la data seleccionada és cap de setmana.';
     } else {
-      this.error = ''
+      this.error = '';
     }
   }
 
-  // Quan l'usuari selecciona una imatge
   onFitxerSeleccionat(event: any) {
     const fitxer = event.target.files[0];
     if (!fitxer) return;
-
     this.fitxerSeleccionat = fitxer;
-
-    // Previsualització
     const reader = new FileReader();
     reader.onload = (e: any) => {
       this.imatgePreview = e.target.result;
@@ -72,13 +65,11 @@ export class OcrFormComponent {
     reader.readAsDataURL(fitxer);
   }
 
-  // Enviar imatge a OCR
   analitzarImatge() {
     if (!this.fitxerSeleccionat) {
       this.error = 'Selecciona una imatge primer';
       return;
     }
-
     this.loadingOcr = true;
     this.error = '';
     this.missatge = '';
@@ -95,12 +86,11 @@ export class OcrFormComponent {
         this.despesa.concepte = d.concepte || '';
         this.despesa.categoria = d.categoria || 'Altres';
         this.despesa.urlImatge = res.urlImatge || '';
+        this.despesa.tipusDocument = d.tipusDocument || 'tiquet';
 
-        // ✅ Comprova si la data és cap de setmana
         if (this.despesa.data && !this.esDiaLaboral(this.despesa.data)) {
-          this.error = '⚠️ Atenció: la data del tiquet és cap de setmana!'
+          this.error = '⚠️ Atenció: la data del tiquet és cap de setmana!';
         }
-
         this.loadingOcr = false;
         this.missatge = '✅ Dades extretes! Revisa i confirma.';
         this.cdr.detectChanges();
@@ -114,10 +104,13 @@ export class OcrFormComponent {
     });
   }
 
-  // Guardar la despesa
   guardarDespesa() {
     if (!this.despesa.proveidor || !this.despesa.importTotal || !this.despesa.data || !this.despesa.concepte) {
       this.error = 'Falten camps obligatoris: Proveïdor, Import, Data i Concepte';
+      return;
+    }
+    if (this.despesa.tipusDocument === 'factura' && !this.despesa.cif) {
+      this.error = 'Les factures requereixen CIF obligatòriament';
       return;
     }
 

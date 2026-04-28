@@ -25,6 +25,8 @@ model despesa {
   usuari        usuari        @relation(fields: [usuariId], references: [id], map: "Despesa_usuariId_fkey")
   fulla         FullaDespesa? @relation(fields: [fullaId], references: [id])
   docuwareId    String?
+  tipusDocument String? 
+  createdAt     DateTime      @default(now()) 
 
   @@index([usuariId], map: "Despesa_usuariId_fkey")
   @@index([fullaId])
