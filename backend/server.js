@@ -61,21 +61,21 @@ const subirADocuware = async (filePath, metadata) => {
     const fileName = path.basename(filePath)
 
     const indexFields = [
-  { FieldName: 'DOCUMENT_TYPE',       Item: metadata.tipusDocument === 'factura' ? 'Factura' : 'Tiquet',  ItemElementName: 'String'  }, // ✅ 'Tiquet' o 'Factura' en lloc de sempre 'Despesa'
-  { FieldName: 'TIPUS_DOCUMENT',      Item: metadata.tipusDocument || 'tiquet',                           ItemElementName: 'String'  }, // ✅ camp addicional per filtrar
-  { FieldName: 'STATUS',              Item: 'draft',                                                      ItemElementName: 'String'  },
-  { FieldName: 'DOCUMENT_DATE',       Item: metadata.data ? new Date(metadata.data).toISOString() : new Date().toISOString(), ItemElementName: 'Date' },
-  { FieldName: 'TOTAL_REIMBURSEMENT', Item: parseFloat(metadata.importTotal) || 0,                        ItemElementName: 'Decimal' },
-  { FieldName: 'COMMENT',             Item: metadata.concepte || '',                                      ItemElementName: 'String'  },
-  { FieldName: 'USER_ID',             Item: String(metadata.usuariId || ''),                              ItemElementName: 'String'  },
-]
+      { FieldName: 'DOCUMENT_TYPE',       Item: metadata.tipusDocument === 'factura' ? 'Factura' : 'Tiquet', ItemElementName: 'String'  },
+      { FieldName: 'TIPUS_DOCUMENT',      Item: metadata.tipusDocument || 'tiquet',                          ItemElementName: 'String'  },
+      { FieldName: 'STATUS',              Item: 'draft',                                                     ItemElementName: 'String'  },
+      { FieldName: 'DOCUMENT_DATE',       Item: metadata.data ? new Date(metadata.data).toISOString() : new Date().toISOString(), ItemElementName: 'Date' },
+      { FieldName: 'TOTAL_REIMBURSEMENT', Item: parseFloat(metadata.importTotal) || 0,                       ItemElementName: 'Decimal' },
+      { FieldName: 'COMMENT',             Item: metadata.concepte || '',                                     ItemElementName: 'String'  },
+      { FieldName: 'USER_ID',             Item: String(metadata.usuariId || ''),                             ItemElementName: 'String'  },
+    ]
 
     const documentJson = JSON.stringify({ Fields: indexFields })
 
     const form = new FormData()
     form.append('document', documentJson, {
       contentType: 'application/json',
-      filename: 'document.json'          // ← alguns DocuWare necessiten filename
+      filename: 'document.json'
     })
 
     const fileBuffer = fs.readFileSync(filePath)
@@ -135,23 +135,36 @@ const actualitzarEstatDocuware = async (docuwareId, estat) => {
 // AUTH
 // ─────────────────────────────────────────────
 
-app.post("/users", async (req, res) => {
+// POST /users — Solo admin puede crear usuarios
+app.post("/users", authenticate, requirePerfil('admin'), async (req, res) => {
   try {
     const { nom, email, password, perfil } = req.body
+
     if (!nom || !email || !password)
       return res.status(400).json({ error: "Falten camps obligatoris" })
+
+    // Evita que se creen otros admins a menos que el admin lo decida explícitamente
+    const perfilFinal = perfil || "usuari"
+
+    const existingUser = await prisma.usuari.findUnique({ where: { email } })
+    if (existingUser)
+      return res.status(409).json({ error: "Ja existeix un usuari amb aquest email" })
+
     const hashedPassword = await bcrypt.hash(password, 10)
     const user = await prisma.usuari.create({
-      data: { nom, email, password: hashedPassword, perfil: perfil || "usuari" }
+      data: { nom, email, password: hashedPassword, perfil: perfilFinal }
     })
-    const token = jwt.sign({ userId: user.id, perfil: user.perfil }, process.env.JWT_SECRET, { expiresIn: "24h" })
-    res.json({ user: { id: user.id, nom: user.nom, email: user.email, perfil: user.perfil }, token })
+
+    res.status(201).json({
+      user: { id: user.id, nom: user.nom, email: user.email, perfil: user.perfil }
+    })
   } catch (error) {
     console.error(error)
     res.status(500).json({ error: "Error creant usuari" })
   }
 })
 
+// POST /login — Accesible para todos
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body
@@ -166,6 +179,38 @@ app.post("/login", async (req, res) => {
   } catch (error) {
     console.error(error)
     res.status(500).json({ error: "Error fent login" })
+  }
+})
+
+// POST /seed-admin — Crea el primer admin (protegido con SEED_SECRET en .env)
+// Usar UNA SOLA VEZ y luego eliminar o deshabilitar
+app.post("/seed-admin", async (req, res) => {
+  try {
+    if (!process.env.SEED_SECRET || req.headers['x-seed-secret'] !== process.env.SEED_SECRET)
+      return res.status(403).json({ error: "No autoritzat" })
+
+    const { nom, email, password } = req.body
+    if (!nom || !email || !password)
+      return res.status(400).json({ error: "Falten camps obligatoris" })
+
+    const existingUser = await prisma.usuari.findUnique({ where: { email } })
+    if (existingUser)
+      return res.status(409).json({ error: "Ja existeix un usuari amb aquest email" })
+
+    const hashedPassword = await bcrypt.hash(password, 10)
+    const user = await prisma.usuari.create({
+      data: { nom, email, password: hashedPassword, perfil: "admin" }
+    })
+
+    const token = jwt.sign({ userId: user.id, perfil: user.perfil }, process.env.JWT_SECRET, { expiresIn: "24h" })
+    res.status(201).json({
+      message: "Admin creat correctament. Elimina o desactiva aquesta ruta.",
+      user: { id: user.id, nom: user.nom, email: user.email, perfil: user.perfil },
+      token
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: "Error creant admin" })
   }
 })
 
@@ -257,8 +302,8 @@ app.get("/despesa", authenticate, async (req, res) => {
           fullaId: true,
           comentari: true,
           docuwareId: true,
-          tipusDocument: true,   
-          createdAt: true 
+          tipusDocument: true,
+          createdAt: true
         }
       })
     }
@@ -280,7 +325,6 @@ app.post("/despesa", authenticate, async (req, res) => {
     if (tipusDocument === 'factura' && !cif)
       return res.status(400).json({ error: "Les factures requereixen CIF" })
 
-    // ✅ FIX: normalitza el tipus i sempre el guarda
     const tipusValid = tipusDocument === 'factura' ? 'factura' : 'tiquet'
 
     const usuariCreador = await prisma.usuari.findUnique({
@@ -301,7 +345,7 @@ app.post("/despesa", authenticate, async (req, res) => {
         urlImatge: urlImatge || "",
         usuariId: req.user.id,
         estat: "draft",
-        tipusDocument: tipusValid   // ✅ FIX: ara es guarda correctament
+        tipusDocument: tipusValid
       }
     })
 
@@ -494,6 +538,44 @@ app.get("/users", authenticate, requirePerfil('admin', 'validador'), async (req,
   } catch (error) {
     console.error(error)
     res.status(500).json({ error: "Error obtenint usuaris" })
+  }
+})
+
+// PUT /users/:id — Edita un usuari (admin only)
+app.put("/users/:id", authenticate, requirePerfil('admin'), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    const { nom, email, perfil, password } = req.body
+
+    const data = {}
+    if (nom) data.nom = nom
+    if (email) data.email = email
+    if (perfil) data.perfil = perfil
+    if (password) data.password = await bcrypt.hash(password, 10)
+
+    const updated = await prisma.usuari.update({
+      where: { id },
+      data,
+      select: { id: true, nom: true, email: true, perfil: true, pressupost: true }
+    })
+    res.json({ usuari: updated })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: "Error actualitzant usuari" })
+  }
+})
+
+// DELETE /users/:id — Elimina un usuari (admin only)
+app.delete("/users/:id", authenticate, requirePerfil('admin'), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    if (id === req.user.id)
+      return res.status(400).json({ error: "No pots eliminar el teu propi compte" })
+    await prisma.usuari.delete({ where: { id } })
+    res.json({ message: "Usuari eliminat correctament" })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: "Error eliminant usuari" })
   }
 })
 

@@ -33,6 +33,14 @@ export class DespesaService {
     formData.append('imatge', fitxer);
     return this.http.post(`${this.baseUrl}/ocr`, formData);
   }
+  private getHeaders(): Record<string, string> | undefined {
+    const token = localStorage.getItem('token');
+    return token ? { Authorization: `Bearer ${token}` } : undefined;
+  }
+  crearUsuari(data: { nom: string; email: string; password: string; perfil: string }): Observable<any> {
+    const headers = this.getHeaders();
+    return this.http.post(`${this.baseUrl}/users`, data, { headers });
+  }
   register(nom: string, email: string, password: string): Observable<any> {
     return this.http.post(`${this.baseUrl}/users`, { nom, email, password, perfil: 'usuari' });
   }
@@ -57,4 +65,6 @@ export class DespesaService {
   getNotificacions(): Observable<any> {
     return this.http.get(`${this.baseUrl}/notificacions`);
   }
+  
+  
 }

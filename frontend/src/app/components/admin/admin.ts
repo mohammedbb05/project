@@ -20,6 +20,11 @@ export class AdminComponent implements OnInit {
   editantId: number | null = null
   nouPressupost = 0
 
+  // ── Crear usuari ──
+  mostrarFormulari = false
+  nouUsuari = { nom: '', email: '', password: '', perfil: 'usuari' }
+  creantUsuari = false
+
   private platformId = inject(PLATFORM_ID)
   private despesaService = inject(DespesaService)
   public router = inject(Router)
@@ -36,8 +41,8 @@ export class AdminComponent implements OnInit {
 
     const perfil = localStorage.getItem('perfil')
     if (perfil !== 'admin' && perfil !== 'validador') {
-       this.router.navigate(['/despeses'])
-       return
+      this.router.navigate(['/despeses'])
+      return
     }
 
     this.loadUsuaris()
@@ -86,5 +91,46 @@ export class AdminComponent implements OnInit {
   cancelarEdicio() {
     this.editantId = null
     this.cdr.detectChanges()
+  }
+
+  // ── Crear usuari ──
+  obrirFormulari() {
+    this.mostrarFormulari = true
+    this.nouUsuari = { nom: '', email: '', password: '', perfil: 'usuari' }
+    this.error = ''
+    this.cdr.detectChanges()
+  }
+
+  tancarFormulari() {
+    this.mostrarFormulari = false
+    this.error = ''
+    this.cdr.detectChanges()
+  }
+
+  crearUsuari() {
+    if (!this.nouUsuari.nom || !this.nouUsuari.email || !this.nouUsuari.password) {
+      this.error = 'Tots els camps són obligatoris'
+      this.cdr.detectChanges()
+      return
+    }
+
+    this.creantUsuari = true
+    this.error = ''
+
+    this.despesaService.crearUsuari(this.nouUsuari).subscribe({
+      next: (res: any) => {
+        this.usuaris = [...this.usuaris, res.user]
+        this.mostrarFormulari = false
+        this.creantUsuari = false
+        this.missatge = `✅ Usuari "${res.user.nom}" creat correctament!`
+        this.cdr.detectChanges()
+        setTimeout(() => { this.missatge = ''; this.cdr.detectChanges() }, 3000)
+      },
+      error: (err: any) => {
+        this.error = err.error?.error || 'Error creant usuari'
+        this.creantUsuari = false
+        this.cdr.detectChanges()
+      }
+    })
   }
 }
