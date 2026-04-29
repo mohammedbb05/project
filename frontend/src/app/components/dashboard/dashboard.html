@@ -1,37 +1,43 @@
+<!-- NAVBAR -->
 <nav class="navbar">
   @if (perfil === 'admin' || perfil === 'validador') {
     <button (click)="router.navigate(['/admin'])" class="btn btn-secondary">⚙️ Admin</button>
   }
   <h1>💼 Gestió Despeses</h1>
-  <div style="display:flex; align-items:center; gap:1rem;">
-    <span style="font-size:0.875rem; color:#64748b;">
+  <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+    <span style="font-size:0.8125rem; color:#4b5563; display:flex; align-items:center; gap:0.5rem;">
       {{ nomUsuari }}
-      <span class="badge" [ngClass]="'badge-' + perfil" style="margin-left:0.5rem;">{{ perfil }}</span>
+      <span class="badge" [ngClass]="'badge-' + perfil">{{ perfil }}</span>
     </span>
 
     @if (notificacions > 0) {
       <div style="position:relative;">
-        <button (click)="toggleNotificacions()"
-          style="background:#ef4444; color:white; border:none; border-radius:999px; padding:0.25rem 0.75rem; font-size:0.75rem; font-weight:700; cursor:pointer;">
+        <button (click)="toggleNotificacions()" class="notif-btn">
           🔔 {{ notificacions }} pendents
         </button>
         @if (mostrarNotificacions) {
-          <div style="position:absolute; top:2rem; right:0; background:#1a1d2e; border:1px solid #2d3148; border-radius:8px; padding:1rem; min-width:300px; z-index:999;">
-            <h4 style="font-size:0.875rem; color:#94a3b8; margin-bottom:0.75rem;">📋 Despeses pendents d'aprovació</h4>
+          <div class="notif-dropdown">
+            <p style="font-size:0.7rem; font-weight:700; color:#4b5563; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.875rem;">
+              Despeses pendents d'aprovació
+            </p>
             @for (d of despesesPendents; track d.id) {
-              <div style="border-bottom:1px solid #2d3148; padding:0.5rem 0;">
-                <p style="font-size:0.875rem; color:#e2e8f0; font-weight:500;">{{ d.proveidor }} – {{ d.importTotal }}€</p>
-                <p style="font-size:0.75rem; color:#64748b;">
-                  {{ d.usuari?.nom || 'Usuari' }} ·
-                  <span [style.color]="d.estat === 'pendent' ? '#f59e0b' : '#94a3b8'">{{ d.estat }}</span>
-                </p>
+              <div style="border-bottom:1px solid #111827; padding:0.625rem 0; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <p style="font-size:0.8125rem; color:#e2e8f0; font-weight:600;">{{ d.proveidor }}</p>
+                  <p style="font-size:0.75rem; color:#4b5563; margin-top:0.125rem;">{{ d.usuari?.nom || 'Usuari' }}</p>
+                </div>
+                <div style="text-align:right;">
+                  <p style="font-size:0.875rem; font-weight:700; color:#60a5fa;">{{ d.importTotal }}€</p>
+                  <span class="badge" [ngClass]="d.estat === 'pendent' ? 'badge-pendent' : 'badge-draft'"
+                    style="margin-top:0.25rem; display:inline-block;">{{ d.estat }}</span>
+                </div>
               </div>
             }
             @if (despesesPendents.length === 0) {
-              <p style="color:#64748b; font-size:0.875rem;">No hi ha despeses pendents</p>
+              <p style="color:#4b5563; font-size:0.875rem; text-align:center; padding:1rem 0;">Cap despesa pendent</p>
             }
-            <button (click)="mostrarNotificacions = false"
-              style="margin-top:0.75rem; width:100%; padding:0.4rem; background:#374151; color:#e2e8f0; border:none; border-radius:4px; cursor:pointer; font-size:0.75rem;">
+            <button (click)="mostrarNotificacions = false" class="btn btn-secondary"
+              style="margin-top:0.875rem; width:100%; font-size:0.75rem; padding:0.4rem;">
               Tancar
             </button>
           </div>
@@ -55,30 +61,33 @@
 
   <!-- PRESSUPOST -->
   @if (perfil === 'usuari') {
-    <div class="card" style="margin-bottom:1.5rem;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
-        <h3 style="font-size:0.875rem; color:#94a3b8; text-transform:uppercase;">💰 Pressupost Mensual</h3>
-        <span style="font-size:0.875rem; color:#64748b;">{{ totalGastat | number:'1.2-2' }} € / {{ pressupost | number:'1.2-2' }} €</span>
+    <div class="pressupost-card">
+      <div class="pressupost-header">
+        <span class="pressupost-label">💰 Pressupost Mensual</span>
+        <span class="pressupost-amounts">
+          <strong>{{ totalGastat | number:'1.2-2' }}€</strong>
+          <span style="color:#2d3748;"> / </span>
+          {{ pressupost | number:'1.2-2' }}€
+        </span>
       </div>
-      <div style="background:#1e2130; border-radius:999px; height:12px; overflow:hidden;">
-        <div
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill"
           [style.width]="(percentatge > 100 ? 100 : percentatge) + '%'"
-          [style.background]="percentatge >= 100 ? '#ef4444' : percentatge >= 75 ? '#f59e0b' : '#22c55e'"
-          style="height:100%; border-radius:999px; transition:width 0.5s;">
+          [style.background]="percentatge >= 100 ? 'linear-gradient(90deg,#ef4444,#dc2626)' : percentatge >= 75 ? 'linear-gradient(90deg,#f59e0b,#d97706)' : 'linear-gradient(90deg,#22c55e,#16a34a)'">
         </div>
       </div>
-      <div style="display:flex; justify-content:space-between; margin-top:0.5rem;">
-        <span style="font-size:0.75rem; color:#64748b;">{{ percentatge }}% gastat</span>
+      <div style="display:flex; justify-content:space-between; margin-top:0.625rem; align-items:center;">
+        <span style="font-size:0.75rem; color:#4b5563; font-weight:600;">{{ percentatge }}% utilitzat</span>
         @if (restant >= 0) {
-          <span style="font-size:0.75rem; color:#22c55e;">Restant: {{ restant | number:'1.2-2' }} €</span>
+          <span style="font-size:0.75rem; color:#4ade80; font-weight:600;">Restant: {{ restant | number:'1.2-2' }}€</span>
         } @else {
-          <span style="font-size:0.75rem; color:#ef4444;">⚠️ Superat per {{ (restant * -1) | number:'1.2-2' }} €</span>
+          <span style="font-size:0.75rem; color:#f87171; font-weight:600;">⚠️ Superat {{ (restant * -1) | number:'1.2-2' }}€</span>
         }
       </div>
       @if (percentatge >= 100) {
-        <div class="msg-error" style="margin-top:0.75rem;">🚨 Has superat el pressupost mensual!</div>
+        <div class="msg-error" style="margin-top:0.875rem; margin-bottom:0;">🚨 Has superat el pressupost mensual!</div>
       } @else if (percentatge >= 75) {
-        <div style="background:#78350f; color:#fcd34d; padding:0.5rem 0.75rem; border-radius:6px; margin-top:0.75rem; font-size:0.875rem;">
+        <div style="background:#1c1008; color:#fbbf24; border:1px solid #92400e; padding:0.5rem 0.875rem; border-radius:8px; margin-top:0.875rem; font-size:0.8125rem; font-weight:500;">
           ⚠️ Estàs a prop del límit del pressupost
         </div>
       }
@@ -86,38 +95,33 @@
   }
 
   <!-- PESTANYES -->
-  <div style="display:flex; border-bottom:1px solid #2d3148; margin-bottom:1.5rem;">
-    <button (click)="pestanya='tots'"
-      style="padding:0.625rem 1.25rem; background:transparent; border:none; border-bottom:2px solid transparent; cursor:pointer; font-size:0.875rem; font-weight:500; transition:all 0.2s;"
-      [style.borderBottomColor]="pestanya==='tots' ? '#3b82f6' : 'transparent'"
-      [style.color]="pestanya==='tots' ? '#3b82f6' : '#94a3b8'">
-      📋 Totes ({{ despeses.length }})
+  <div class="tabs">
+    <button class="tab-btn" [class.active]="pestanya==='tots'" (click)="pestanya='tots'">
+      📋 Totes <span class="tab-count">{{ despeses.length }}</span>
     </button>
-    <button (click)="pestanya='tiquets'"
-      style="padding:0.625rem 1.25rem; background:transparent; border:none; border-bottom:2px solid transparent; cursor:pointer; font-size:0.875rem; font-weight:500; transition:all 0.2s;"
-      [style.borderBottomColor]="pestanya==='tiquets' ? '#3b82f6' : 'transparent'"
-      [style.color]="pestanya==='tiquets' ? '#3b82f6' : '#94a3b8'">
-      🧾 Tiquets ({{ tiquets.length }})
+    <button class="tab-btn" [class.active]="pestanya==='tiquets'" (click)="pestanya='tiquets'">
+      🧾 Tiquets <span class="tab-count">{{ tiquets.length }}</span>
     </button>
-    <button (click)="pestanya='factures'"
-      style="padding:0.625rem 1.25rem; background:transparent; border:none; border-bottom:2px solid transparent; cursor:pointer; font-size:0.875rem; font-weight:500; transition:all 0.2s;"
-      [style.borderBottomColor]="pestanya==='factures' ? '#3b82f6' : 'transparent'"
-      [style.color]="pestanya==='factures' ? '#3b82f6' : '#94a3b8'">
-      📄 Factures ({{ factures.length }})
+    <button class="tab-btn" [class.active]="pestanya==='factures'" (click)="pestanya='factures'">
+      📄 Factures <span class="tab-count">{{ factures.length }}</span>
     </button>
   </div>
 
-  @if (loading) { <p style="color:#64748b;">Carregant despeses...</p> }
+  @if (loading) {
+    <div style="display:flex; align-items:center; gap:0.75rem; color:#4b5563; padding:2rem 0;">
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+      Carregant despeses...
+    </div>
+  }
+
   @if (error) { <div class="msg-error">{{ error }}</div> }
 
   @if (!loading && !error && despesesMostrades.length === 0) {
-    <div class="card" style="text-align:center; padding:3rem;">
-      <p style="font-size:2rem;">📭</p>
-      <p style="color:#64748b; margin-top:0.5rem;">
-        No hi ha {{ pestanya === 'tiquets' ? 'tiquets' : pestanya === 'factures' ? 'factures' : 'despeses' }} encara
-      </p>
+    <div class="card empty-state">
+      <div class="empty-icon">📭</div>
+      <p>No hi ha {{ pestanya === 'tiquets' ? 'tiquets' : pestanya === 'factures' ? 'factures' : 'despeses' }} encara</p>
       @if (perfil === 'usuari') {
-        <button (click)="router.navigate(['/nova-despesa'])" class="btn btn-primary" style="margin-top:1rem;">
+        <button (click)="router.navigate(['/nova-despesa'])" class="btn btn-primary" style="margin-top:1.25rem;">
           + Crear primera despesa
         </button>
       }
@@ -125,97 +129,108 @@
   }
 
   @if (!loading && despesesMostrades.length > 0) {
-    <table>
-      <thead>
-        <tr>
-          <th>Tipus</th>
-          <th>Proveïdor</th>
-          <th>Import</th>
-          <th>Data</th>
-          <th>Creada</th>
-          <th>Concepte</th>
-          <th>Categoria</th>
-          @if (esValidador) { <th>Usuari</th> }
-          <th>Estat</th>
-          <th>Accions</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (d of despesesMostrades; track d.id) {
+    <div class="table-wrapper">
+      <table>
+        <thead>
           <tr>
-            <td>
-              <span
-                [style.background]="d.tipusDocument === 'factura' ? '#1e3a5f' : '#1a2e1a'"
-                [style.color]="d.tipusDocument === 'factura' ? '#60a5fa' : '#4ade80'"
-                style="padding:0.2rem 0.6rem; border-radius:4px; font-size:0.75rem; font-weight:500; white-space:nowrap;">
-                {{ d.tipusDocument === 'factura' ? '📄 Factura' : '🧾 Tiquet' }}
-              </span>
-            </td>
-            <td style="font-weight:500; color:#e2e8f0;">{{ d.proveidor }}</td>
-            <td style="color:#3b82f6; font-weight:600;">{{ d.importTotal }} €</td>
-            <td>{{ d.data | date:'dd/MM/yyyy' }}</td>
-            <!-- ✅ NOU: data de creació de la despesa -->
-            <td style="color:#64748b; font-size:0.75rem; white-space:nowrap;">
-              {{ d.createdAt ? (d.createdAt | date:'dd/MM/yyyy HH:mm') : '-' }}
-            </td>
-            <td>{{ d.concepte }}</td>
-            <td>
-              <span style="background:#1e2130; padding:0.2rem 0.6rem; border-radius:4px; font-size:0.75rem;">
-                {{ d.categoria }}
-              </span>
-            </td>
+            <!-- ✅ Cada th és clicable per ordenar -->
+            <th class="sortable" (click)="sortBy('tipusDocument')">
+              Tipus <span class="sort-icon">{{ sortIcon('tipusDocument') }}</span>
+            </th>
+            <th class="sortable" (click)="sortBy('proveidor')">
+              Proveïdor <span class="sort-icon">{{ sortIcon('proveidor') }}</span>
+            </th>
+            <th class="sortable" (click)="sortBy('importTotal')">
+              Import <span class="sort-icon">{{ sortIcon('importTotal') }}</span>
+            </th>
+            <th class="sortable" (click)="sortBy('data')" title="Passa el ratolí per files per veure data de creació">
+              Data <span class="sort-icon">{{ sortIcon('data') }}</span>
+            </th>
+            <th class="sortable" (click)="sortBy('concepte')">
+              Concepte <span class="sort-icon">{{ sortIcon('concepte') }}</span>
+            </th>
+            <th class="sortable" (click)="sortBy('categoria')">
+              Categoria <span class="sort-icon">{{ sortIcon('categoria') }}</span>
+            </th>
             @if (esValidador) {
-              <td style="color:#94a3b8;">{{ d.usuari?.nom || '-' }}</td>
+              <th class="sortable" (click)="sortBy('usuari')">
+                Usuari <span class="sort-icon">{{ sortIcon('usuari') }}</span>
+              </th>
             }
-            <td>
-              <div>
+            <th class="sortable" (click)="sortBy('estat')">
+              Estat <span class="sort-icon">{{ sortIcon('estat') }}</span>
+            </th>
+            <th>Accions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (d of despesesMostrades; track d.id) {
+            <tr>
+              <td>
+                <span [class]="d.tipusDocument === 'factura' ? 'tipus-factura' : 'tipus-tiquet'">
+                  {{ d.tipusDocument === 'factura' ? '📄 Factura' : '🧾 Tiquet' }}
+                </span>
+              </td>
+              <td><span class="proveidor-cell" [title]="d.proveidor">{{ d.proveidor }}</span></td>
+              <td><span class="import-cell">{{ d.importTotal | number:'1.2-2' }} €</span></td>
+
+              <!-- Data amb tooltip de creació -->
+              <td>
+                <div class="date-wrapper">
+                  <span class="date-cell">{{ d.data | date:'dd/MM/yyyy' }}</span>
+                  <div class="date-tooltip">
+                    <strong>📅 Data document</strong>
+                    {{ d.data | date:'dd/MM/yyyy' }}
+                    <strong style="margin-top:0.4rem;">🕐 Creada</strong>
+                    {{ d.createdAt ? (d.createdAt | date:'dd/MM/yyyy HH:mm') : '-' }}
+                  </div>
+                </div>
+              </td>
+
+              <td class="concepte-cell" [title]="d.concepte">{{ d.concepte }}</td>
+              <td><span class="categoria-pill">{{ d.categoria }}</span></td>
+              @if (esValidador) {
+                <td style="color:#6b7280; font-size:0.8rem;">{{ d.usuari?.nom || '-' }}</td>
+              }
+              <td>
                 <span class="badge"
                   [ngClass]="d.estat === 'aprovat' ? 'badge-aprovat' : d.estat === 'rebutjat' ? 'badge-rebutjat' : d.estat === 'pendent' ? 'badge-pendent' : 'badge-draft'">
                   {{ d.estat }}
                 </span>
                 @if (d.comentari) {
-                  <div style="margin-top:0.375rem; background:#7f1d1d; padding:0.375rem 0.5rem; border-radius:4px;">
-                    <p style="font-size:0.75rem; color:#fca5a5;">💬 {{ d.comentari }}</p>
-                  </div>
+                  <div class="comentari-badge" [title]="d.comentari">💬 {{ d.comentari }}</div>
                 }
-              </div>
-            </td>
-            <td>
-              <div style="display:flex; gap:0.375rem; flex-wrap:wrap;">
-                @if (esValidador) {
-                  <button (click)="aprovar(d)" class="btn btn-success"
-                    [disabled]="d.estat === 'aprovat'"
-                    style="padding:0.25rem 0.6rem; font-size:0.75rem;">✔</button>
-                  <button (click)="toggleComentari(d.id)" class="btn btn-warning"
-                    [disabled]="d.estat === 'rebutjat'"
-                    style="padding:0.25rem 0.6rem; font-size:0.75rem;">✗</button>
-                  <button (click)="eliminar(d)" class="btn btn-danger"
-                    style="padding:0.25rem 0.6rem; font-size:0.75rem;">🗑</button>
-                }
-                @if (perfil === 'usuari') {
-                  <button (click)="eliminar(d)" class="btn btn-danger"
-                    style="padding:0.25rem 0.6rem; font-size:0.75rem;">🗑</button>
-                }
-              </div>
-
-              @if (mostrarComentari[d.id]) {
-                <div style="margin-top:0.5rem; background:#1e2130; padding:0.75rem; border-radius:6px; min-width:200px;">
-                  <p style="font-size:0.75rem; color:#94a3b8; margin-bottom:0.375rem;">Motiu del rebuig:</p>
-                  <input [(ngModel)]="comentariText[d.id]" type="text"
-                    placeholder="Ex: Import incorrecte..."
-                    style="width:100%; margin-bottom:0.5rem; font-size:0.75rem;">
-                  <div style="display:flex; gap:0.375rem;">
-                    <button (click)="rebutjarAmbComentari(d)" class="btn btn-danger"
-                      style="padding:0.25rem 0.75rem; font-size:0.75rem;">Confirmar rebuig</button>
-                    <button (click)="mostrarComentari[d.id] = false" class="btn btn-secondary"
-                      style="padding:0.25rem 0.75rem; font-size:0.75rem;">Cancel·lar</button>
-                  </div>
+              </td>
+              <td>
+                <div class="action-btns">
+                  @if (esValidador) {
+                    <button (click)="aprovar(d)" class="btn btn-success"
+                      [disabled]="d.estat === 'aprovat'" title="Aprovar">✓</button>
+                    <button (click)="toggleComentari(d.id)" class="btn btn-warning"
+                      [disabled]="d.estat === 'rebutjat'" title="Rebutjar">✗</button>
+                    <button (click)="eliminar(d)" class="btn btn-danger" title="Eliminar">🗑</button>
+                  }
+                  @if (perfil === 'usuari') {
+                    <button (click)="eliminar(d)" class="btn btn-danger" title="Eliminar">🗑</button>
+                  }
                 </div>
-              }
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
+                @if (mostrarComentari[d.id]) {
+                  <div class="comment-box">
+                    <p style="font-size:0.7rem; color:#4b5563; margin-bottom:0.5rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Motiu del rebuig</p>
+                    <input [(ngModel)]="comentariText[d.id]" type="text" placeholder="Ex: Import incorrecte...">
+                    <div style="display:flex; gap:0.375rem;">
+                      <button (click)="rebutjarAmbComentari(d)" class="btn btn-danger"
+                        style="flex:1; font-size:0.75rem; padding:0.375rem 0.5rem;">Confirmar</button>
+                      <button (click)="mostrarComentari[d.id] = false" class="btn btn-secondary"
+                        style="font-size:0.75rem; padding:0.375rem 0.5rem;">Cancel·lar</button>
+                    </div>
+                  </div>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
   }
 </div>

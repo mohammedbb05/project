@@ -1,0 +1,106 @@
+.ocr-zone {
+  border: 2px dashed #1f2937;
+  border-radius: 14px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.2s ease;
+  background: #080b14;
+  margin-bottom: 1.25rem;
+}
+
+.ocr-zone:hover {
+  border-color: #3b82f6;
+  background: #0c1220;
+}
+
+.ocr-zone p {
+  color: #4b5563;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.preview-img {
+  max-width: 100%;
+  max-height: 220px;
+  border-radius: 10px;
+  border: 1px solid #1a2035;
+  object-fit: contain;
+  margin: 1rem auto 0;
+  display: block;
+}
+
+.radio-group {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.radio-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: #080b14;
+}
+
+.radio-option:has(input:checked) {
+  border-color: #3b82f6;
+  background: #0c1929;
+  color: #60a5fa;
+}
+
+.radio-option input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #3b82f6;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 600px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .radio-group { flex-direction: column; }
+}
+
+.field-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: block;
+  margin-bottom: 0.375rem;
+}
+
+.field-required {
+  color: #ef4444;
+  margin-left: 0.125rem;
+}
+
+.field-hint {
+  font-size: 0.7rem;
+  color: #ef4444;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+.field-warn {
+  font-size: 0.7rem;
+  color: #fbbf24;
+  margin-top: 0.25rem;
+  display: block;
+}

@@ -8,6 +8,7 @@ import { RouterOutlet } from '@angular/router'; // ✅ Afegir
   standalone: true,
   imports: [RouterOutlet] // ✅ Important!
 })
+
 export class AppComponent {
-  title = 'project-frontend';
+  title = '';
 }

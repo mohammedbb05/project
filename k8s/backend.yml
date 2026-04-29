@@ -1,0 +1,103 @@
+# k8s/backend.yml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uploads-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: despeses-backend:latest
+          # Usa la imatge local de Docker Desktop
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: despeses-secret
+                  key: DATABASE_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: despeses-secret
+                  key: JWT_SECRET
+            - name: OPENROUTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: despeses-secret
+                  key: OPENROUTER_API_KEY
+            - name: DOCUWARE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: despeses-secret
+                  key: DOCUWARE_URL
+            - name: DOCUWARE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: despeses-secret
+                  key: DOCUWARE_USER
+            - name: DOCUWARE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: despeses-secret
+                  key: DOCUWARE_PASSWORD
+            - name: DOCUWARE_TOKEN_URL
+              valueFrom:
+                secretKeyRef:
+                  name: despeses-secret
+                  key: DOCUWARE_TOKEN_URL
+            - name: DOCUWARE_CABINET_ID
+              valueFrom:
+                secretKeyRef:
+                  name: despeses-secret
+                  key: DOCUWARE_CABINET_ID
+            - name: PORT
+              value: "3000"
+            - name: SERVER_URL
+              value: "http://localhost:3000"
+          volumeMounts:
+            - name: uploads-storage
+              mountPath: /app/uploads
+          readinessProbe:
+            httpGet:
+              path: /notificacions
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: uploads-storage
+          persistentVolumeClaim:
+            claimName: uploads-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP

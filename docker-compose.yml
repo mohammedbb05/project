@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+
+  # ─── BASE DE DADES ───────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: despeses-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: despeses_db
+      MYSQL_USER: despeses_user
+      MYSQL_PASSWORD: despeses_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── BACKEND ─────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: despeses-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: mysql://despeses_user:despeses_pass@mysql:3306/despeses_db
+      JWT_SECRET: el_teu_jwt_secret_molt_segur
+      PORT: 3000
+      SERVER_URL: http://localhost:3000
+      # DocuWare (opcional)
+      DOCUWARE_URL: ${DOCUWARE_URL}
+      DOCUWARE_USER: ${DOCUWARE_USER}
+      DOCUWARE_PASSWORD: ${DOCUWARE_PASSWORD}
+      DOCUWARE_TOKEN_URL: ${DOCUWARE_TOKEN_URL}
+      DOCUWARE_CABINET_ID: ${DOCUWARE_CABINET_ID}
+      # OpenRouter
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # ─── FRONTEND ────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: despeses-frontend
+    restart: unless-stopped
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
+  uploads_data:

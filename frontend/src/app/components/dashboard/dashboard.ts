@@ -36,6 +36,10 @@ export class DashboardComponent implements OnInit {
 
   pestanya: 'tots' | 'tiquets' | 'factures' = 'tots';
 
+  // ✅ NOU: ordenació per columna
+  sortColumn: string = '';
+  sortDirection: 'asc' | 'desc' = 'asc';
+
   private platformId = inject(PLATFORM_ID);
   private despesaService = inject(DespesaService);
   private cdr = inject(ChangeDetectorRef);
@@ -66,10 +70,55 @@ export class DashboardComponent implements OnInit {
     return this.perfil === 'admin';
   }
 
+  // ✅ NOU: getter que retorna les despeses ordenades
   get despesesMostrades(): any[] {
-    if (this.pestanya === 'tiquets') return this.tiquets;
-    if (this.pestanya === 'factures') return this.factures;
-    return this.despeses;
+    let llista: any[] = [];
+    if (this.pestanya === 'tiquets') llista = this.tiquets;
+    else if (this.pestanya === 'factures') llista = this.factures;
+    else llista = this.despeses;
+
+    if (!this.sortColumn) return llista;
+
+    return [...llista].sort((a, b) => {
+      let valA = a[this.sortColumn];
+      let valB = b[this.sortColumn];
+
+      // Tractament especial per tipus de dades
+      if (this.sortColumn === 'data' || this.sortColumn === 'createdAt') {
+        valA = valA ? new Date(valA).getTime() : 0;
+        valB = valB ? new Date(valB).getTime() : 0;
+      } else if (this.sortColumn === 'importTotal') {
+        valA = parseFloat(valA) || 0;
+        valB = parseFloat(valB) || 0;
+      } else if (this.sortColumn === 'usuari') {
+        valA = a.usuari?.nom?.toLowerCase() || '';
+        valB = b.usuari?.nom?.toLowerCase() || '';
+      } else if (typeof valA === 'string') {
+        valA = valA?.toLowerCase() || '';
+        valB = valB?.toLowerCase() || '';
+      }
+
+      if (valA < valB) return this.sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return this.sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  // ✅ NOU: canvia columna i direcció d'ordenació
+  sortBy(column: string) {
+    if (this.sortColumn === column) {
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortColumn = column;
+      this.sortDirection = 'asc';
+    }
+    this.cdr.detectChanges();
+  }
+
+  // ✅ NOU: retorna la icona d'ordenació per a cada columna
+  sortIcon(column: string): string {
+    if (this.sortColumn !== column) return '↕';
+    return this.sortDirection === 'asc' ? '↑' : '↓';
   }
 
   loadDespeses() {
@@ -194,14 +243,13 @@ export class DashboardComponent implements OnInit {
   }
 
   exportarCSV() {
-    // ✅ NOU: s'afegeix la columna 'Data Creació' al CSV
     const headers = ['Tipus', 'Proveïdor', 'Import', 'Data', 'Data Creació', 'Concepte', 'Categoria', 'Estat', 'Usuari', 'Comentari'];
     const files = this.despesesMostrades.map(d => [
       d.tipusDocument || 'tiquet',
       d.proveidor,
       d.importTotal,
       new Date(d.data).toLocaleDateString('ca'),
-      d.createdAt ? new Date(d.createdAt).toLocaleString('ca') : '-',  // ✅ NOU
+      d.createdAt ? new Date(d.createdAt).toLocaleString('ca') : '-',
       d.concepte,
       d.categoria,
       d.estat,
