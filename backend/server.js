@@ -71,12 +71,8 @@ const subirADocuware = async (filePath, metadata) => {
     ]
 
     const documentJson = JSON.stringify({ Fields: indexFields })
-
     const form = new FormData()
-    form.append('document', documentJson, {
-      contentType: 'application/json',
-      filename: 'document.json'
-    })
+    form.append('document', documentJson, { contentType: 'application/json', filename: 'document.json' })
 
     const fileBuffer = fs.readFileSync(filePath)
     const mimeType = fileName.match(/\.(jpg|jpeg)$/i) ? 'image/jpeg' :
@@ -84,8 +80,6 @@ const subirADocuware = async (filePath, metadata) => {
                      fileName.match(/\.pdf$/i)        ? 'application/pdf' : 'application/octet-stream'
 
     form.append('file[]', fileBuffer, { filename: fileName, contentType: mimeType })
-
-    console.log('Pujant a DocuWare amb fields:', JSON.stringify(indexFields, null, 2))
 
     const uploadRes = await axios.post(
       `${process.env.DOCUWARE_URL}/DocuWare/Platform/FileCabinets/${cabinetId}/Documents`,
@@ -98,9 +92,6 @@ const subirADocuware = async (filePath, metadata) => {
         }
       }
     )
-
-    console.log('DocuWare response:', JSON.stringify(uploadRes.data, null, 2))
-
     const docId = uploadRes.data?.Id
     console.log(`Document pujat a DocuWare ✅ ID: ${docId}`)
     return docId
@@ -135,36 +126,7 @@ const actualitzarEstatDocuware = async (docuwareId, estat) => {
 // AUTH
 // ─────────────────────────────────────────────
 
-// POST /users — Solo admin puede crear usuarios
-app.post("/users", authenticate, requirePerfil('admin'), async (req, res) => {
-  try {
-    const { nom, email, password, perfil } = req.body
-
-    if (!nom || !email || !password)
-      return res.status(400).json({ error: "Falten camps obligatoris" })
-
-    // Evita que se creen otros admins a menos que el admin lo decida explícitamente
-    const perfilFinal = perfil || "usuari"
-
-    const existingUser = await prisma.usuari.findUnique({ where: { email } })
-    if (existingUser)
-      return res.status(409).json({ error: "Ja existeix un usuari amb aquest email" })
-
-    const hashedPassword = await bcrypt.hash(password, 10)
-    const user = await prisma.usuari.create({
-      data: { nom, email, password: hashedPassword, perfil: perfilFinal }
-    })
-
-    res.status(201).json({
-      user: { id: user.id, nom: user.nom, email: user.email, perfil: user.perfil }
-    })
-  } catch (error) {
-    console.error(error)
-    res.status(500).json({ error: "Error creant usuari" })
-  }
-})
-
-// POST /login — Accesible para todos
+// POST /login
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body
@@ -175,42 +137,157 @@ app.post("/login", async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password)
     if (!validPassword) return res.status(401).json({ error: "Password incorrecte" })
     const token = jwt.sign({ userId: user.id, perfil: user.perfil }, process.env.JWT_SECRET, { expiresIn: "24h" })
-    res.json({ user: { id: user.id, nom: user.nom, email: user.email, perfil: user.perfil }, token })
+    res.json({
+      user: {
+        id: user.id,
+        nom: user.nom,
+        email: user.email,
+        perfil: user.perfil,
+        mustChangePassword: user.mustChangePassword || false  // ✅ primer login
+      },
+      token
+    })
   } catch (error) {
     console.error(error)
     res.status(500).json({ error: "Error fent login" })
   }
 })
 
-// POST /seed-admin — Crea el primer admin (protegido con SEED_SECRET en .env)
-// Usar UNA SOLA VEZ y luego eliminar o deshabilitar
-app.post("/seed-admin", async (req, res) => {
+// POST /users — Solo admin pot crear usuaris
+app.post("/users", authenticate, requirePerfil('admin'), async (req, res) => {
   try {
-    if (!process.env.SEED_SECRET || req.headers['x-seed-secret'] !== process.env.SEED_SECRET)
-      return res.status(403).json({ error: "No autoritzat" })
-
-    const { nom, email, password } = req.body
+    const { nom, email, password, perfil } = req.body
     if (!nom || !email || !password)
       return res.status(400).json({ error: "Falten camps obligatoris" })
-
+    const perfilFinal = perfil || "usuari"
     const existingUser = await prisma.usuari.findUnique({ where: { email } })
     if (existingUser)
       return res.status(409).json({ error: "Ja existeix un usuari amb aquest email" })
-
     const hashedPassword = await bcrypt.hash(password, 10)
     const user = await prisma.usuari.create({
-      data: { nom, email, password: hashedPassword, perfil: "admin" }
+      data: {
+        nom, email,
+        password: hashedPassword,
+        perfil: perfilFinal,
+        mustChangePassword: true  // ✅ força canvi de contrasenya en primer login
+      }
     })
-
-    const token = jwt.sign({ userId: user.id, perfil: user.perfil }, process.env.JWT_SECRET, { expiresIn: "24h" })
     res.status(201).json({
-      message: "Admin creat correctament. Elimina o desactiva aquesta ruta.",
-      user: { id: user.id, nom: user.nom, email: user.email, perfil: user.perfil },
-      token
+      user: { id: user.id, nom: user.nom, email: user.email, perfil: user.perfil }
     })
   } catch (error) {
     console.error(error)
-    res.status(500).json({ error: "Error creant admin" })
+    res.status(500).json({ error: "Error creant usuari" })
+  }
+})
+
+// PUT /users/:id — Edita un usuari (admin only)
+app.put("/users/:id", authenticate, requirePerfil('admin'), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    const { nom, email, perfil, password } = req.body
+    const data = {}
+    if (nom) data.nom = nom
+    if (email) data.email = email
+    if (perfil) data.perfil = perfil
+    if (password) {
+      data.password = await bcrypt.hash(password, 10)
+      data.mustChangePassword = true  // ✅ si admin canvia contrasenya, força canvi
+    }
+    const updated = await prisma.usuari.update({
+      where: { id },
+      data,
+      select: { id: true, nom: true, email: true, perfil: true, pressupost: true }
+    })
+    res.json({ usuari: updated })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: "Error actualitzant usuari" })
+  }
+})
+
+// DELETE /users/:id — Elimina un usuari (admin only)
+app.delete("/users/:id", authenticate, requirePerfil('admin'), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    if (id === req.user.id)
+      return res.status(400).json({ error: "No pots eliminar el teu propi compte" })
+    await prisma.usuari.delete({ where: { id } })
+    res.json({ message: "Usuari eliminat correctament" })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: "Error eliminant usuari" })
+  }
+})
+
+// GET /users
+app.get("/users", authenticate, requirePerfil('admin', 'validador'), async (req, res) => {
+  try {
+    const usuaris = await prisma.usuari.findMany({
+      select: { id: true, nom: true, email: true, perfil: true, pressupost: true, mustChangePassword: true }
+    })
+    res.json({ usuaris })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: "Error obtenint usuaris" })
+  }
+})
+
+// ─────────────────────────────────────────────
+// PERFIL
+// ─────────────────────────────────────────────
+
+// GET /perfil
+app.get("/perfil", authenticate, async (req, res) => {
+  try {
+    const usuari = await prisma.usuari.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, nom: true, email: true, perfil: true, pressupost: true }
+    })
+    res.json({ usuari })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: "Error obtenint perfil" })
+  }
+})
+
+// PUT /perfil
+app.put("/perfil", authenticate, async (req, res) => {
+  try {
+    const { nom, email } = req.body
+    const updated = await prisma.usuari.update({
+      where: { id: req.user.id },
+      data: { nom, email },
+      select: { id: true, nom: true, email: true, perfil: true }
+    })
+    res.json({ usuari: updated })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: "Error actualitzant perfil" })
+  }
+})
+
+// PUT /perfil/contrasenya
+app.put("/perfil/contrasenya", authenticate, async (req, res) => {
+  try {
+    const { passwordActual, passwordNou } = req.body
+    if (!passwordActual || !passwordNou)
+      return res.status(400).json({ error: "Falten camps" })
+    const usuari = await prisma.usuari.findUnique({ where: { id: req.user.id } })
+    const valid = await bcrypt.compare(passwordActual, usuari.password)
+    if (!valid) return res.status(401).json({ error: "Contrasenya actual incorrecta" })
+    const hashed = await bcrypt.hash(passwordNou, 10)
+    await prisma.usuari.update({
+      where: { id: req.user.id },
+      data: {
+        password: hashed,
+        mustChangePassword: false  // ✅ ja ha canviat la contrasenya
+      }
+    })
+    res.json({ message: "Contrasenya canviada correctament" })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: "Error canviant contrasenya" })
   }
 })
 
@@ -221,11 +298,9 @@ app.post("/seed-admin", async (req, res) => {
 app.post("/ocr", authenticate, upload.single('imatge'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "Cal pujar una imatge" })
-
     const imageBuffer = fs.readFileSync(req.file.path)
     const base64Image = imageBuffer.toString('base64')
     const mimeType = req.file.mimetype
-
     const response = await axios.post(
       'https://openrouter.ai/api/v1/chat/completions',
       {
@@ -255,7 +330,6 @@ Retorna NOMÉS el JSON, sense cap text addicional, amb aquesta estructura exacta
       },
       { headers: { 'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`, 'Content-Type': 'application/json' } }
     )
-
     const content = response.data.choices[0].message.content
     const cleanJson = content.replace(/```json|```/g, '').trim()
     const dadesExtretes = JSON.parse(cleanJson)
@@ -271,12 +345,10 @@ Retorna NOMÉS el JSON, sense cap text addicional, amb aquesta estructura exacta
 // DESPESES
 // ─────────────────────────────────────────────
 
-// GET /despesa — Llista les despeses
 app.get("/despesa", authenticate, async (req, res) => {
   try {
     const { tipus } = req.query
     const whereBase = tipus ? { tipusDocument: tipus } : {}
-
     let despeses
     if (req.user.perfil === 'admin' || req.user.perfil === 'validador') {
       despeses = await prisma.despesa.findMany({
@@ -287,23 +359,10 @@ app.get("/despesa", authenticate, async (req, res) => {
       despeses = await prisma.despesa.findMany({
         where: { ...whereBase, usuariId: req.user.id },
         select: {
-          id: true,
-          proveidor: true,
-          cif: true,
-          importTotal: true,
-          iva: true,
-          baseImposable: true,
-          data: true,
-          concepte: true,
-          categoria: true,
-          urlImatge: true,
-          usuariId: true,
-          estat: true,
-          fullaId: true,
-          comentari: true,
-          docuwareId: true,
-          tipusDocument: true,
-          createdAt: true
+          id: true, proveidor: true, cif: true, importTotal: true,
+          iva: true, baseImposable: true, data: true, concepte: true,
+          categoria: true, urlImatge: true, usuariId: true, estat: true,
+          fullaId: true, comentari: true, docuwareId: true, tipusDocument: true
         }
       })
     }
@@ -314,41 +373,26 @@ app.get("/despesa", authenticate, async (req, res) => {
   }
 })
 
-// POST /despesa — Crea una nova despesa
 app.post("/despesa", authenticate, async (req, res) => {
   try {
     const { proveidor, cif, importTotal, iva, baseImposable, data, concepte, categoria, urlImatge, tipusDocument } = req.body
-
     if (!proveidor || !importTotal || !data || !concepte || !categoria)
       return res.status(400).json({ error: "Falten camps obligatoris" })
-
     if (tipusDocument === 'factura' && !cif)
       return res.status(400).json({ error: "Les factures requereixen CIF" })
-
     const tipusValid = tipusDocument === 'factura' ? 'factura' : 'tiquet'
-
     const usuariCreador = await prisma.usuari.findUnique({
-      where: { id: req.user.id },
-      select: { nom: true }
+      where: { id: req.user.id }, select: { nom: true }
     })
-
     const despesa = await prisma.despesa.create({
       data: {
-        proveidor,
-        cif: cif || "",
-        importTotal,
-        iva: iva || null,
-        baseImposable: baseImposable || null,
-        data: new Date(data),
-        concepte,
-        categoria,
-        urlImatge: urlImatge || "",
-        usuariId: req.user.id,
-        estat: "draft",
-        tipusDocument: tipusValid
+        proveidor, cif: cif || "", importTotal,
+        iva: iva || null, baseImposable: baseImposable || null,
+        data: new Date(data), concepte, categoria,
+        urlImatge: urlImatge || "", usuariId: req.user.id,
+        estat: "draft", tipusDocument: tipusValid
       }
     })
-
     if (urlImatge) {
       const filename = urlImatge.split('/uploads/')[1]
       if (filename) {
@@ -357,39 +401,29 @@ app.post("/despesa", authenticate, async (req, res) => {
           subirADocuware(filePath, {
             proveidor, cif, importTotal, data, categoria, concepte,
             usuariId: req.user.id, tipusDocument: tipusValid
-          })
-            .then(async (docuwareId) => {
-              if (docuwareId) {
-                try {
-                  await prisma.despesa.update({
-                    where: { id: despesa.id },
-                    data: { docuwareId: String(docuwareId) }
-                  })
-                  console.log(`Despesa ${despesa.id} vinculada a DocuWare ID ${docuwareId}`)
-                } catch {
-                  console.log(`DocuWare OK però camp docuwareId no existeix.`)
-                }
-              }
-            })
-            .catch(err => console.error('Error DocuWare background:', err.message))
+          }).then(async (docuwareId) => {
+            if (docuwareId) {
+              await prisma.despesa.update({
+                where: { id: despesa.id },
+                data: { docuwareId: String(docuwareId) }
+              }).catch(() => {})
+            }
+          }).catch(err => console.error('Error DocuWare background:', err.message))
         }
       }
     }
-
     const validadors = await prisma.usuari.findMany({
       where: { perfil: { in: ['validador', 'admin'] } },
       select: { nom: true, email: true }
     })
     for (const validador of validadors) {
       await enviarNotificacio({
-        nomUsuari: validador.nom,
-        emailUsuari: validador.email,
+        nomUsuari: validador.nom, emailUsuari: validador.email,
         proveidor, importTotal,
         subject: `🆕 Nova ${tipusValid} pendent d'aprovació`,
         missatge: `L'usuari ${usuariCreador.nom} ha creat una nova ${tipusValid} de ${importTotal}€ a ${proveidor}.`
       })
     }
-
     res.json({ despesa })
   } catch (error) {
     console.error(error)
@@ -397,7 +431,6 @@ app.post("/despesa", authenticate, async (req, res) => {
   }
 })
 
-// PUT /despesa/:id — Edita una despesa existent
 app.put("/despesa/:id", authenticate, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
@@ -413,7 +446,6 @@ app.put("/despesa/:id", authenticate, async (req, res) => {
   }
 })
 
-// DELETE /despesa/:id — Elimina una despesa
 app.delete("/despesa/:id", authenticate, async (req, res) => {
   try {
     const id = parseInt(req.params.id)
@@ -429,7 +461,6 @@ app.delete("/despesa/:id", authenticate, async (req, res) => {
   }
 })
 
-// POST /despesa/:id/aprovar
 app.post("/despesa/:id/aprovar", authenticate, requirePerfil('validador', 'admin'), async (req, res) => {
   try {
     const id = parseInt(req.params.id)
@@ -450,7 +481,6 @@ app.post("/despesa/:id/aprovar", authenticate, requirePerfil('validador', 'admin
   }
 })
 
-// POST /despesa/:id/rebutjar
 app.post("/despesa/:id/rebutjar", authenticate, requirePerfil('validador', 'admin'), async (req, res) => {
   try {
     const id = parseInt(req.params.id)
@@ -522,60 +552,6 @@ app.get("/estadistiques/total", authenticate, async (req, res) => {
   } catch (error) {
     console.error(error)
     res.status(500).json({ error: "Error calculant total" })
-  }
-})
-
-// ─────────────────────────────────────────────
-// USUARIS
-// ─────────────────────────────────────────────
-
-app.get("/users", authenticate, requirePerfil('admin', 'validador'), async (req, res) => {
-  try {
-    const usuaris = await prisma.usuari.findMany({
-      select: { id: true, nom: true, email: true, perfil: true, pressupost: true }
-    })
-    res.json({ usuaris })
-  } catch (error) {
-    console.error(error)
-    res.status(500).json({ error: "Error obtenint usuaris" })
-  }
-})
-
-// PUT /users/:id — Edita un usuari (admin only)
-app.put("/users/:id", authenticate, requirePerfil('admin'), async (req, res) => {
-  try {
-    const id = parseInt(req.params.id)
-    const { nom, email, perfil, password } = req.body
-
-    const data = {}
-    if (nom) data.nom = nom
-    if (email) data.email = email
-    if (perfil) data.perfil = perfil
-    if (password) data.password = await bcrypt.hash(password, 10)
-
-    const updated = await prisma.usuari.update({
-      where: { id },
-      data,
-      select: { id: true, nom: true, email: true, perfil: true, pressupost: true }
-    })
-    res.json({ usuari: updated })
-  } catch (error) {
-    console.error(error)
-    res.status(500).json({ error: "Error actualitzant usuari" })
-  }
-})
-
-// DELETE /users/:id — Elimina un usuari (admin only)
-app.delete("/users/:id", authenticate, requirePerfil('admin'), async (req, res) => {
-  try {
-    const id = parseInt(req.params.id)
-    if (id === req.user.id)
-      return res.status(400).json({ error: "No pots eliminar el teu propi compte" })
-    await prisma.usuari.delete({ where: { id } })
-    res.json({ message: "Usuari eliminat correctament" })
-  } catch (error) {
-    console.error(error)
-    res.status(500).json({ error: "Error eliminant usuari" })
   }
 })
 
@@ -769,9 +745,15 @@ app.put("/pressupost/:userId", authenticate, requirePerfil('admin', 'validador')
   try {
     const userId = parseInt(req.params.userId)
     const { pressupost } = req.body
+    const pressupostFloat = parseFloat(pressupost)
+
+    if (!Number.isFinite(pressupostFloat)) {
+      return res.status(400).json({ error: "Pressupost invàlid o no proporcionat" })
+    }
+
     const updated = await prisma.usuari.update({
       where: { id: userId },
-      data: { pressupost: parseFloat(pressupost) }
+      data: { pressupost: pressupostFloat }
     })
     res.json({ usuari: { id: updated.id, nom: updated.nom, pressupost: updated.pressupost } })
   } catch (error) {

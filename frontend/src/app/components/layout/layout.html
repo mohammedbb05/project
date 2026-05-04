@@ -1,0 +1,65 @@
+<div class="app-layout">
+
+  <!-- -- SIDEBAR -- -->
+  <aside class="sidebar">
+
+    <!-- Logo -->
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">💼</div>
+      <div>
+        <div class="sidebar-logo-title">Despeses</div>
+        <div class="sidebar-logo-sub">{{ perfil | titlecase }}</div>
+      </div>
+    </div>
+
+    <!-- Nav principal -->
+    <div class="sidebar-section-label">PRINCIPAL</div>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link" [class.active]="router.url.startsWith('/despeses')" (click)="router.navigate(['/despeses'])">
+        <span class="sidebar-link-icon">📋</span> Dashboard
+      </a>
+      <a class="sidebar-link" [class.active]="router.url.startsWith('/despeses')" (click)="router.navigate(['/despeses'])">
+        <span class="sidebar-link-icon">💳</span> Despeses
+      </a>
+      <a class="sidebar-link" [class.active]="router.url.startsWith('/fulles')" (click)="router.navigate(['/fulles'])">
+        <span class="sidebar-link-icon">📁</span> Fulles
+      </a>
+      <a class="sidebar-link" [class.active]="router.url.startsWith('/calendari')" (click)="router.navigate(['/calendari'])">
+        <span class="sidebar-link-icon">📅</span> Calendari
+      </a>
+      <a class="sidebar-link" [class.active]="router.url.startsWith('/estadistiques')" (click)="router.navigate(['/estadistiques'])">
+        <span class="sidebar-link-icon">📊</span> Stats
+      </a>
+      
+    </nav>
+
+    <!-- Nav administració (admin/validador) -->
+    @if (esValidador) {
+      <div class="sidebar-section-label">ADMINISTRACIÓ</div>
+      <nav class="sidebar-nav">
+        <a class="sidebar-link" [class.active]="router.url.startsWith('/admin')" (click)="router.navigate(['/admin'])">
+          <span class="sidebar-link-icon">👥</span> Usuaris
+        </a>
+        <a class="sidebar-link" [class.active]="router.url.startsWith('/admin')" (click)="router.navigate(['/admin'])">
+          <span class="sidebar-link-icon">⚙️</span> Configuració
+        </a>
+      </nav>
+    }
+
+    <!-- Usuari baix -->
+    <div class="sidebar-user" (click)="router.navigate(['/perfil'])" title="Veure perfil">
+      <div class="sidebar-user-avatar">{{ nomUsuari.charAt(0).toUpperCase() }}</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name">{{ nomUsuari }}</div>
+        <div class="sidebar-user-role">{{ perfil | titlecase }}</div>
+      </div>
+      <button (click)="logout(); $event.stopPropagation()" class="sidebar-logout" title="Sortir">→</button>
+    </div>
+
+  </aside>
+
+  <main class="main-content">
+    <router-outlet></router-outlet>
+  </main>
+
+</div>

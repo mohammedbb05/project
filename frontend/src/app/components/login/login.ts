@@ -16,28 +16,44 @@ export class LoginComponent {
   email = '';
   password = '';
   errorMsg = '';
+  carregant = false;
 
   private platformId = inject(PLATFORM_ID);
   private despesaService = inject(DespesaService);
   public router = inject(Router);
 
   login() {
+    if (!this.email || !this.password) {
+      this.errorMsg = 'Omple tots els camps';
+      return;
+    }
+
+    this.carregant = true;
+    this.errorMsg = '';
+
     this.despesaService.login(this.email, this.password).subscribe({
       next: (res: any) => {
         if (isPlatformBrowser(this.platformId)) {
-          // ✅ Guarda token + perfil + nom
           localStorage.setItem('token', res.token);
           localStorage.setItem('perfil', res.user.perfil);
           localStorage.setItem('nom', res.user.nom);
-          console.log('TOKEN GUARDAT:', res.token);
-          console.log('PERFIL:', res.user.perfil);
+          localStorage.setItem('userId', String(res.user.id));
+          localStorage.setItem('email', res.user.email);
+
+          // Si és primer login (mustChangePassword), redirigeix a canviar contrasenya
+          if (res.user.mustChangePassword) {
+            this.router.navigate(['/canviar-contrasenya'], { queryParams: { primer: true } });
+          } else {
+            this.router.navigate(['/despeses']);
+          }
         }
-        this.router.navigate(['/despeses']);
+        this.carregant = false;
       },
       error: (err: any) => {
         console.error('Error login:', err);
         this.errorMsg = 'Email o password incorrectes';
         this.password = '';
+        this.carregant = false;
       }
     });
   }

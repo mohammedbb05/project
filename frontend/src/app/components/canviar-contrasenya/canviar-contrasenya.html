@@ -1,0 +1,54 @@
+<!-- src/app/components/canviar-contrasenya/canviar-contrasenya.html -->
+<div style="min-height:100vh; display:flex; align-items:center; justify-content:center;">
+  <div class="card" style="width:100%; max-width:420px;">
+
+    <div style="text-align:center; margin-bottom:2rem;">
+      <div style="font-size:2.5rem; margin-bottom:0.5rem;">🔐</div>
+      <h2 style="font-size:1.5rem; font-weight:700; color:#e2e8f0;">
+        {{ esPrimerLogin ? 'Benvingut! Canvia la contrasenya' : 'Canviar Contrasenya' }}
+      </h2>
+      @if (esPrimerLogin) {
+        <p style="color:#f59e0b; font-size:0.875rem; margin-top:0.5rem;">
+          ⚠️ Has d'establir una nova contrasenya abans de continuar
+        </p>
+      }
+    </div>
+
+    @if (missatge) { <div class="msg-success">{{ missatge }}</div> }
+    @if (error) { <div class="msg-error">{{ error }}</div> }
+
+    <div style="display:flex; flex-direction:column; gap:1rem;">
+
+      <label style="font-size:0.875rem; color:#94a3b8;">
+        Contrasenya actual
+        <input type="password" [(ngModel)]="passwordActual" placeholder="••••••••"
+          style="margin-top:0.375rem;">
+      </label>
+
+      <label style="font-size:0.875rem; color:#94a3b8;">
+        Nova contrasenya
+        <input type="password" [(ngModel)]="passwordNou" placeholder="mínim 6 caràcters"
+          style="margin-top:0.375rem;">
+      </label>
+
+      <label style="font-size:0.875rem; color:#94a3b8;">
+        Confirmar nova contrasenya
+        <input type="password" [(ngModel)]="passwordConfirm" placeholder="••••••••"
+          style="margin-top:0.375rem;" (keyup.enter)="canviar()">
+      </label>
+
+      <button (click)="canviar()" class="btn btn-primary"
+        style="width:100%; padding:0.75rem; font-size:1rem; margin-top:0.5rem;"
+        [disabled]="carregant">
+        {{ carregant ? 'Canviant...' : '🔐 Canviar Contrasenya' }}
+      </button>
+
+      @if (!esPrimerLogin) {
+        <button (click)="tornar()" class="btn btn-secondary" style="width:100%;">
+          ← Tornar al Perfil
+        </button>
+      }
+    </div>
+
+  </div>
+</div>

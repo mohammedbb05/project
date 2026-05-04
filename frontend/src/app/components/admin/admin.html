@@ -2,137 +2,117 @@
 <nav class="navbar">
   <h1>💼 Gestió Despeses</h1>
   <div style="display:flex; gap:0.5rem;">
-    <button (click)="router.navigate(['/despeses'])" class="btn btn-secondary">
-      ← Dashboard
-    </button>
+    <button (click)="router.navigate(['/perfil'])" class="btn btn-secondary">👤 Perfil</button>
+    <button (click)="router.navigate(['/despeses'])" class="btn btn-secondary">← Dashboard</button>
   </div>
 </nav>
 
 <div class="container">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-    <h2 style="font-size:1.5rem; font-weight:700;">
-      ⚙️ Administració — Usuaris
-    </h2>
-    <button (click)="obrirFormulari()" class="btn btn-primary">
-      ➕ Nou Usuari
-    </button>
+    <h2 style="font-size:1.5rem; font-weight:700;">⚙️ Administració — Usuaris</h2>
+    @if (getPerfil() === 'admin') {
+      <button (click)="obrirCrear()" class="btn btn-primary">➕ Nou Usuari</button>
+    }
   </div>
 
-  @if (missatge) { <div class="msg-success">{{ missatge }}</div> }
-  @if (error && !mostrarFormulari) { <div class="msg-error">{{ error }}</div> }
+  @if (missatge) { <div class="msg-success" style="margin-bottom:1rem;">{{ missatge }}</div> }
+  @if (error && !mostrarCrear && !mostrarEditar) { <div class="msg-error" style="margin-bottom:1rem;">{{ error }}</div> }
 
-  <!-- ── Modal crear usuari ── -->
-  @if (mostrarFormulari) {
-    <div style="position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:1000;">
-      <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:2rem; width:100%; max-width:450px; box-shadow:0 25px 50px rgba(0,0,0,0.5);">
-
+  <!-- MODAL CREAR -->
+  @if (mostrarCrear) {
+    <div style="position:fixed; inset:0; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:1000;">
+      <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:2rem; width:100%; max-width:450px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
           <h3 style="font-size:1.25rem; font-weight:700; color:#e2e8f0;">➕ Crear Nou Usuari</h3>
-          <button (click)="tancarFormulari()" style="background:none; border:none; color:#94a3b8; font-size:1.5rem; cursor:pointer;">✕</button>
+          <button (click)="tancarCrear()" style="background:none; border:none; color:#94a3b8; font-size:1.5rem; cursor:pointer;">✕</button>
         </div>
-
         @if (error) { <div class="msg-error" style="margin-bottom:1rem;">{{ error }}</div> }
-
         <div style="display:flex; flex-direction:column; gap:1rem;">
-
-          <div>
-            <label style="display:block; font-size:0.875rem; color:#94a3b8; margin-bottom:0.375rem;">Nom</label>
-            <input [(ngModel)]="nouUsuari.nom" type="text" placeholder="Nom complet"
-              style="width:100%; padding:0.625rem 0.875rem; background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:0.9rem;">
-          </div>
-
-          <div>
-            <label style="display:block; font-size:0.875rem; color:#94a3b8; margin-bottom:0.375rem;">Email</label>
-            <input [(ngModel)]="nouUsuari.email" type="email" placeholder="email@empresa.com"
-              style="width:100%; padding:0.625rem 0.875rem; background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:0.9rem;">
-          </div>
-
-          <div>
-            <label style="display:block; font-size:0.875rem; color:#94a3b8; margin-bottom:0.375rem;">Password</label>
-            <input [(ngModel)]="nouUsuari.password" type="password" placeholder="••••••••"
-              style="width:100%; padding:0.625rem 0.875rem; background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:0.9rem;">
-          </div>
-
-          <div>
-            <label style="display:block; font-size:0.875rem; color:#94a3b8; margin-bottom:0.375rem;">Perfil</label>
-            <select [(ngModel)]="nouUsuari.perfil"
-              style="width:100%; padding:0.625rem 0.875rem; background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:0.9rem;">
+          <label style="font-size:0.875rem; color:#94a3b8;">Nom<input [(ngModel)]="nouUsuari.nom" type="text" placeholder="Nom complet" style="margin-top:0.375rem; display:block; width:100%;"></label>
+          <label style="font-size:0.875rem; color:#94a3b8;">Email<input [(ngModel)]="nouUsuari.email" type="email" placeholder="email@empresa.com" style="margin-top:0.375rem; display:block; width:100%;"></label>
+          <label style="font-size:0.875rem; color:#94a3b8;">Contrasenya temporal<input [(ngModel)]="nouUsuari.password" type="text" placeholder="L'usuari haurà de canviar-la" style="margin-top:0.375rem; display:block; width:100%;"></label>
+          <label style="font-size:0.875rem; color:#94a3b8;">Perfil
+            <select [(ngModel)]="nouUsuari.perfil" style="margin-top:0.375rem; width:100%; padding:0.625rem; background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0;">
               <option value="usuari">Usuari</option>
               <option value="validador">Validador</option>
               <option value="admin">Admin</option>
             </select>
-          </div>
-
+          </label>
         </div>
-
         <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
-          <button (click)="crearUsuari()" class="btn btn-primary" style="flex:1;" [disabled]="creantUsuari">
-            {{ creantUsuari ? 'Creant...' : '✅ Crear Usuari' }}
-          </button>
-          <button (click)="tancarFormulari()" class="btn btn-secondary" style="flex:1;">
-            Cancel·lar
-          </button>
+          <button (click)="crearUsuari()" class="btn btn-primary" style="flex:1;" [disabled]="creantUsuari">{{ creantUsuari ? 'Creant...' : '✅ Crear Usuari' }}</button>
+          <button (click)="tancarCrear()" class="btn btn-secondary" style="flex:1;">Cancel·lar</button>
         </div>
-
       </div>
     </div>
   }
 
-  <!-- ── Taula usuaris ── -->
-  @if (loading) {
-    <p style="color:#64748b;">Carregant usuaris...</p>
+  <!-- MODAL EDITAR -->
+  @if (mostrarEditar && usuariEditat) {
+    <div style="position:fixed; inset:0; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:1000;">
+      <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:2rem; width:100%; max-width:450px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+          <h3 style="font-size:1.25rem; font-weight:700; color:#e2e8f0;">✏️ Editar Usuari</h3>
+          <button (click)="tancarEditar()" style="background:none; border:none; color:#94a3b8; font-size:1.5rem; cursor:pointer;">✕</button>
+        </div>
+        @if (error) { <div class="msg-error" style="margin-bottom:1rem;">{{ error }}</div> }
+        <div style="display:flex; flex-direction:column; gap:1rem;">
+          <label style="font-size:0.875rem; color:#94a3b8;">Nom<input [(ngModel)]="usuariEditat.nom" type="text" style="margin-top:0.375rem; display:block; width:100%;"></label>
+          <label style="font-size:0.875rem; color:#94a3b8;">Email<input [(ngModel)]="usuariEditat.email" type="email" style="margin-top:0.375rem; display:block; width:100%;"></label>
+          <label style="font-size:0.875rem; color:#94a3b8;">Perfil
+            <select [(ngModel)]="usuariEditat.perfil" style="margin-top:0.375rem; width:100%; padding:0.625rem; background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0;">
+              <option value="usuari">Usuari</option>
+              <option value="validador">Validador</option>
+              <option value="admin">Admin</option>
+            </select>
+          </label>
+          <label style="font-size:0.875rem; color:#94a3b8;">Nova contrasenya <span style="color:#64748b;">(opcional)</span><input [(ngModel)]="usuariEditat.passwordNou" type="password" placeholder="Deixa buit per no canviar" style="margin-top:0.375rem; display:block; width:100%;"></label>
+        </div>
+        <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+          <button (click)="guardarEdicio()" class="btn btn-primary" style="flex:1;" [disabled]="editantUsuari">{{ editantUsuari ? 'Guardant...' : '💾 Guardar' }}</button>
+          <button (click)="tancarEditar()" class="btn btn-secondary" style="flex:1;">Cancel·lar</button>
+        </div>
+      </div>
+    </div>
   }
+
+  <!-- TAULA -->
+  @if (loading) { <p style="color:#64748b;">Carregant usuaris...</p> }
 
   @if (!loading && usuaris.length > 0) {
     <table>
       <thead>
         <tr>
-          <th>Nom</th>
-          <th>Email</th>
-          <th>Perfil</th>
-          <th>Pressupost</th>
-          <th>Accions</th>
+          <th>Nom</th><th>Email</th><th>Perfil</th><th>Pressupost</th><th>Accions</th>
         </tr>
       </thead>
       <tbody>
         @for (u of usuaris; track u.id) {
           <tr>
             <td style="font-weight:500; color:#e2e8f0;">{{ u.nom }}</td>
-            <td style="color:#94a3b8;">{{ u.email }}</td>
+            <td style="color:#94a3b8; font-size:0.875rem;">{{ u.email }}</td>
+            <td><span class="badge" [ngClass]="'badge-' + u.perfil">{{ u.perfil }}</span></td>
             <td>
-              <span class="badge" [ngClass]="'badge-' + u.perfil">
-                {{ u.perfil }}
-              </span>
-            </td>
-            <td>
-              @if (editantId === u.id) {
+              @if (editantPressupostId === u.id) {
                 <div style="display:flex; gap:0.5rem; align-items:center;">
-                  <input [(ngModel)]="nouPressupost" type="number"
-                    style="width:100px; padding:0.25rem 0.5rem;">
-                  <span style="color:#64748b; font-size:0.875rem;">€</span>
+                  <input [(ngModel)]="nouPressupost" type="number" style="width:100px; padding:0.25rem 0.5rem;">
+                  <span style="color:#64748b;">€</span>
                 </div>
               } @else {
-                <span style="color:#3b82f6; font-weight:600;">
-                  {{ u.pressupost | number:'1.2-2' }} €
-                </span>
+                <span style="color:#3b82f6; font-weight:600;">{{ u.pressupost | number:'1.2-2' }} €</span>
               }
             </td>
             <td>
-              <div style="display:flex; gap:0.375rem;">
-                @if (editantId === u.id) {
-                  <button (click)="guardarPressupost(u.id)" class="btn btn-success"
-                    style="padding:0.25rem 0.75rem; font-size:0.75rem;">
-                    💾 Guardar
-                  </button>
-                  <button (click)="cancelarEdicio()" class="btn btn-secondary"
-                    style="padding:0.25rem 0.75rem; font-size:0.75rem;">
-                    ✕
-                  </button>
+              <div style="display:flex; gap:0.375rem; flex-wrap:wrap;">
+                @if (editantPressupostId === u.id) {
+                  <button (click)="guardarPressupost(u.id)" class="btn btn-success" style="padding:0.25rem 0.75rem; font-size:0.75rem;">💾 Guardar</button>
+                  <button (click)="cancelarPressupost()" class="btn btn-secondary" style="padding:0.25rem 0.75rem; font-size:0.75rem;">✕</button>
                 } @else {
-                  <button (click)="editarPressupost(u)" class="btn btn-primary"
-                    style="padding:0.25rem 0.75rem; font-size:0.75rem;">
-                    ✏️ Pressupost
-                  </button>
+                  <button (click)="editarPressupost(u)" class="btn btn-primary" style="padding:0.25rem 0.75rem; font-size:0.75rem;">💰 Pressupost</button>
+                  @if (getPerfil() === 'admin') {
+                    <button (click)="obrirEditar(u)" class="btn btn-secondary" style="padding:0.25rem 0.75rem; font-size:0.75rem;">✏️ Editar</button>
+                    <button (click)="eliminarUsuari(u.id)" class="btn btn-danger" style="padding:0.25rem 0.75rem; font-size:0.75rem;" [disabled]="eliminantId === u.id">🗑️</button>
+                  }
                 }
               </div>
             </td>

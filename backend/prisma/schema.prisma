@@ -41,6 +41,7 @@ model usuari {
   pressupost Float          @default(1000)
   despesa    despesa[]
   fulles     FullaDespesa[]
+  mustChangePassword Boolean @default(false)
 }
 
 model FullaDespesa {

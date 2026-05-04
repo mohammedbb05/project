@@ -3,16 +3,9 @@
 <nav class="navbar">
   <h1>💼 Gestió Despeses</h1>
   <div style="display:flex; gap:0.5rem; align-items:center;">
-    <span style="font-size:0.875rem; color:#64748b;">
-      {{ nomUsuari }}
-      <span class="badge" [ngClass]="'badge-' + perfil" style="margin-left:0.5rem;">
-        {{ perfil }}
-      </span>
-    </span>
     <button (click)="router.navigate(['/despeses'])" class="btn btn-secondary">
       ← Dashboard
     </button>
-    <button (click)="logout()" class="btn btn-secondary">Sortir</button>
   </div>
 </nav>
 

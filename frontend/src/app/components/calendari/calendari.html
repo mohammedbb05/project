@@ -1,0 +1,204 @@
+<!-- src/app/components/calendari/calendari.html -->
+<nav class="navbar">
+  <h1>💼 Gestió Despeses</h1>
+  <div style="display:flex; gap:0.5rem;">
+    <button (click)="router.navigate(['/despeses'])" class="btn btn-secondary">← Dashboard</button>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- ── Capçalera calendari ── -->
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:1rem;">
+    <div style="display:flex; align-items:center; gap:1rem;">
+      <button (click)="mesAnterior()" class="btn btn-secondary" style="padding:0.375rem 0.875rem; font-size:1.25rem;">‹</button>
+      <h2 style="font-size:1.5rem; font-weight:700; color:#e2e8f0; min-width:200px; text-align:center;">
+        {{ MESOS[mesActual] }} {{ anyActual }}
+      </h2>
+      <button (click)="mesSeguent()" class="btn btn-secondary" style="padding:0.375rem 0.875rem; font-size:1.25rem;">›</button>
+      <button (click)="avui()" class="btn btn-secondary" style="padding:0.375rem 0.875rem; font-size:0.8rem;">Avui</button>
+    </div>
+    <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+      <!-- Llegenda -->
+      <div style="display:flex; gap:0.75rem; align-items:center;">
+        <span style="display:flex; align-items:center; gap:0.25rem; font-size:0.75rem; color:#94a3b8;">
+          <span style="width:10px; height:10px; border-radius:50%; background:#f59e0b; display:inline-block;"></span> Draft
+        </span>
+        <span style="display:flex; align-items:center; gap:0.25rem; font-size:0.75rem; color:#94a3b8;">
+          <span style="width:10px; height:10px; border-radius:50%; background:#3b82f6; display:inline-block;"></span> Pendent
+        </span>
+        <span style="display:flex; align-items:center; gap:0.25rem; font-size:0.75rem; color:#94a3b8;">
+          <span style="width:10px; height:10px; border-radius:50%; background:#10b981; display:inline-block;"></span> Aprovat
+        </span>
+        <span style="display:flex; align-items:center; gap:0.25rem; font-size:0.75rem; color:#94a3b8;">
+          <span style="width:10px; height:10px; border-radius:50%; background:#ef4444; display:inline-block;"></span> Rebutjat
+        </span>
+      </div>
+      @if (perfil === 'usuari') {
+        <button (click)="novaDespesa()" class="btn btn-primary" style="padding:0.5rem 1rem;">
+          ➕ Nova Despesa
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- ── Stats del mes ── -->
+  <div style="display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap;">
+    <div class="card" style="flex:1; min-width:150px; text-align:center; padding:0.875rem;">
+      <div style="font-size:1.5rem; font-weight:700; color:#3b82f6;">{{ getTotalDespesesMes() }}</div>
+      <div style="color:#94a3b8; font-size:0.8rem;">Despeses aquest mes</div>
+    </div>
+    <div class="card" style="flex:1; min-width:150px; text-align:center; padding:0.875rem;">
+      <div style="font-size:1.5rem; font-weight:700; color:#10b981;">{{ getTotalImportMes() | number:'1.2-2' }}€</div>
+      <div style="color:#94a3b8; font-size:0.8rem;">Total aquest mes</div>
+    </div>
+  </div>
+
+  <!-- ── Calendari ── -->
+  @if (loading) {
+    <p style="color:#64748b; text-align:center; padding:2rem;">Carregant despeses...</p>
+  }
+
+  @if (!loading) {
+    <div class="card" style="padding:1rem;">
+
+      <!-- Capçalera dies setmana -->
+      <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:4px;">
+        @for (dia of DIES; track dia) {
+          <div style="text-align:center; font-size:0.75rem; font-weight:600; color:#64748b; padding:0.5rem 0;">
+            {{ dia }}
+          </div>
+        }
+      </div>
+
+      <!-- Dies -->
+      <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px;">
+        @for (cell of diesDelMes; track $index) {
+          <div
+            (click)="obrirDia(cell)"
+style="min-height:70px; border-radius:8px; padding:0.375rem; position:relative; transition:background 0.15s;"
+[style.cursor]="cell.dia && cell.despeses.length > 0 ? 'pointer' : 'default'"            [style.background]="esAvui(cell.dia) ? 'rgba(59,130,246,0.15)' : cell.dia ? '#1e293b' : 'transparent'"
+            [style.border]="esAvui(cell.dia) ? '1px solid #3b82f6' : '1px solid transparent'">
+
+            @if (cell.dia) {
+              <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.375rem;"
+                [style.color]="esAvui(cell.dia) ? '#3b82f6' : '#94a3b8'">
+                {{ cell.dia }}
+              </div>
+
+              <!-- Punts de despeses -->
+              <div style="display:flex; flex-wrap:wrap; gap:3px;">
+                @for (dep of cell.despeses.slice(0,6); track dep.id) {
+                  <span
+                    (click)="$event.stopPropagation(); obrirDespesa(dep)"
+                    style="width:10px; height:10px; border-radius:50%; display:inline-block; cursor:pointer; transition:transform 0.1s;"
+                    [style.background]="getColor(dep.estat)"
+                    [title]="dep.proveidor + ' — ' + dep.importTotal + '€ (' + dep.estat + ')'">
+                  </span>
+                }
+                @if (cell.despeses.length > 6) {
+                  <span style="font-size:0.6rem; color:#64748b; line-height:10px;">+{{ cell.despeses.length - 6 }}</span>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+    </div>
+  }
+
+</div>
+
+<!-- ── MODAL DESPESA ── -->
+@if (mostrarModal && despesaSeleccionada) {
+  <div style="position:fixed; inset:0; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:1000;"
+    (click)="tancarModal()">
+    <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:2rem; width:100%; max-width:480px; box-shadow:0 25px 50px rgba(0,0,0,0.5);"
+      (click)="$event.stopPropagation()">
+
+      <!-- Capçalera modal -->
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.5rem;">
+        <div>
+          <h3 style="font-size:1.25rem; font-weight:700; color:#e2e8f0; margin-bottom:0.25rem;">
+            {{ despesaSeleccionada.proveidor }}
+          </h3>
+          <span style="display:inline-block; padding:0.2rem 0.75rem; border-radius:99px; font-size:0.75rem; font-weight:600; color:white;"
+            [style.background]="getColor(despesaSeleccionada.estat)">
+            {{ despesaSeleccionada.estat }}
+          </span>
+        </div>
+        <button (click)="tancarModal()" style="background:none; border:none; color:#94a3b8; font-size:1.5rem; cursor:pointer;">✕</button>
+      </div>
+
+      <!-- Detalls -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
+        <div>
+          <div style="font-size:0.75rem; color:#64748b; margin-bottom:0.25rem;">Import</div>
+          <div style="font-size:1.25rem; font-weight:700; color:#3b82f6;">{{ despesaSeleccionada.importTotal | number:'1.2-2' }}€</div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem; color:#64748b; margin-bottom:0.25rem;">Data</div>
+          <div style="color:#e2e8f0;">{{ despesaSeleccionada.data | date:'dd/MM/yyyy' }}</div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem; color:#64748b; margin-bottom:0.25rem;">Categoria</div>
+          <div style="color:#e2e8f0;">{{ despesaSeleccionada.categoria }}</div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem; color:#64748b; margin-bottom:0.25rem;">Tipus</div>
+          <div style="color:#e2e8f0;">{{ despesaSeleccionada.tipusDocument || 'tiquet' }}</div>
+        </div>
+        @if (despesaSeleccionada.concepte) {
+          <div style="grid-column:1/-1;">
+            <div style="font-size:0.75rem; color:#64748b; margin-bottom:0.25rem;">Concepte</div>
+            <div style="color:#e2e8f0;">{{ despesaSeleccionada.concepte }}</div>
+          </div>
+        }
+        @if (despesaSeleccionada.usuari) {
+          <div style="grid-column:1/-1;">
+            <div style="font-size:0.75rem; color:#64748b; margin-bottom:0.25rem;">Usuari</div>
+            <div style="color:#e2e8f0;">{{ despesaSeleccionada.usuari.nom }}</div>
+          </div>
+        }
+        @if (despesaSeleccionada.comentari) {
+          <div style="grid-column:1/-1;">
+            <div style="font-size:0.75rem; color:#64748b; margin-bottom:0.25rem;">Comentari</div>
+            <div style="color:#ef4444;">{{ despesaSeleccionada.comentari }}</div>
+          </div>
+        }
+      </div>
+
+      <!-- Imatge si existeix -->
+      @if (despesaSeleccionada.urlImatge) {
+        <div style="margin-bottom:1.5rem;">
+          <img [src]="despesaSeleccionada.urlImatge" alt="Tiquet"
+            style="width:100%; max-height:200px; object-fit:cover; border-radius:8px; border:1px solid #334155;">
+        </div>
+      }
+
+      <!-- Accions -->
+      <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+        @if ((perfil === 'admin' || perfil === 'validador') && despesaSeleccionada.estat !== 'aprovat') {
+          <button (click)="aprovar()" class="btn btn-success" style="flex:1;">
+            ✅ Aprovar
+          </button>
+        }
+        @if ((perfil === 'admin' || perfil === 'validador') && despesaSeleccionada.estat !== 'rebutjat') {
+          <button (click)="rebutjar()" class="btn btn-danger" style="flex:1;">
+            ❌ Rebutjar
+          </button>
+        }
+        @if (perfil === 'usuari' && despesaSeleccionada.estat === 'draft') {
+          <button (click)="router.navigate(['/nova-despesa'])" class="btn btn-primary" style="flex:1;">
+            ✏️ Editar
+          </button>
+        }
+        <button (click)="tancarModal()" class="btn btn-secondary" style="flex:1;">
+          Tancar
+        </button>
+      </div>
+
+    </div>
+  </div>
+}

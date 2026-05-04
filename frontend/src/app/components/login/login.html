@@ -29,17 +29,11 @@
       </label>
 
       <button (click)="login()" class="btn btn-primary"
-        style="width:100%; padding:0.75rem; font-size:1rem; margin-top:0.5rem;">
-        Entrar →
+        style="width:100%; padding:0.75rem; font-size:1rem; margin-top:0.5rem;"
+        [disabled]="carregant">
+        {{ carregant ? 'Entrant...' : 'Entrar →' }}
       </button>
     </div>
-    <p style="text-align:center; color:#64748b; font-size:0.875rem; margin-top:1rem;">
-  No tens compte?
-  <a (click)="router.navigate(['/register'])"
-    style="color:#3b82f6; cursor:pointer; text-decoration:underline;">
-    Crea'n un
-  </a>
-</p>
 
   </div>
 </div>

@@ -1,0 +1,151 @@
+<!-- src/app/components/perfil/perfil.html -->
+<nav class="navbar">
+  <h1>💼 Gestió Despeses</h1>
+  <div style="display:flex; gap:0.5rem;">
+    <button (click)="router.navigate(['/despeses'])" class="btn btn-secondary">← Dashboard</button>
+  </div>
+</nav>
+
+<div class="container" style="max-width:700px;">
+
+  @if (missatge) { <div class="msg-success">{{ missatge }}</div> }
+  @if (error) { <div class="msg-error">{{ error }}</div> }
+
+  <!-- ── Capçalera perfil ── -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div style="display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
+      <div style="width:72px; height:72px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:700; color:white; flex-shrink:0;"
+        [style.background]="getBadgeColor()">
+        {{ nom.charAt(0).toUpperCase() }}
+      </div>
+      <div style="flex:1;">
+        <h2 style="font-size:1.5rem; font-weight:700; color:#e2e8f0; margin-bottom:0.25rem;">{{ nom }}</h2>
+        <p style="color:#94a3b8; margin-bottom:0.5rem;">{{ email }}</p>
+        <span class="badge" [ngClass]="'badge-' + perfil">{{ perfil }}</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:0.5rem;">
+        <button (click)="editarDades()" class="btn btn-primary" style="padding:0.375rem 1rem; font-size:0.875rem;">
+          ✏️ Editar dades
+        </button>
+        <button (click)="router.navigate(['/canviar-contrasenya'])" class="btn btn-secondary" style="padding:0.375rem 1rem; font-size:0.875rem;">
+          🔐 Canviar contrasenya
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Formulari editar dades ── -->
+  @if (editantDades) {
+    <div class="card" style="margin-bottom:1.5rem; border:1px solid #3b82f6;">
+      <h3 style="font-size:1rem; font-weight:600; color:#e2e8f0; margin-bottom:1rem;">✏️ Editar dades personals</h3>
+      <div style="display:flex; flex-direction:column; gap:1rem;">
+        <label style="font-size:0.875rem; color:#94a3b8;">
+          Nom
+          <input [(ngModel)]="nomEditat" type="text" style="margin-top:0.375rem;">
+        </label>
+        <label style="font-size:0.875rem; color:#94a3b8;">
+          Email
+          <input [(ngModel)]="emailEditat" type="email" style="margin-top:0.375rem;">
+        </label>
+        <div style="display:flex; gap:0.75rem;">
+          <button (click)="guardarDades()" class="btn btn-success" [disabled]="guardantDades">
+            {{ guardantDades ? 'Guardant...' : '💾 Guardar' }}
+          </button>
+          <button (click)="cancelarEdicio()" class="btn btn-secondary">Cancel·lar</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ── Stats USUARI ── -->
+  @if (perfil === 'usuari') {
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
+      <div class="card" style="text-align:center;">
+        <div style="font-size:2rem; font-weight:700; color:#3b82f6;">{{ totalDespeses }}</div>
+        <div style="color:#94a3b8; font-size:0.875rem;">Total despeses</div>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div style="font-size:2rem; font-weight:700; color:#10b981;">{{ pressupost | number:'1.2-2' }}€</div>
+        <div style="color:#94a3b8; font-size:0.875rem;">Pressupost</div>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div style="font-size:2rem; font-weight:700;" [style.color]="percentatge > 80 ? '#ef4444' : '#f59e0b'">
+          {{ totalGastat | number:'1.2-2' }}€
+        </div>
+        <div style="color:#94a3b8; font-size:0.875rem;">Gastat ({{ percentatge }}%)</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.5rem;">
+      <h3 style="font-size:0.875rem; color:#94a3b8; margin-bottom:0.75rem;">Ús del pressupost</h3>
+      <div style="background:#1e293b; border-radius:99px; height:12px; overflow:hidden;">
+        <div style="height:100%; border-radius:99px; transition:width 0.5s ease;"
+          [style.width]="(percentatge > 100 ? 100 : percentatge) + '%'"
+          [style.background]="percentatge > 80 ? '#ef4444' : percentatge > 60 ? '#f59e0b' : '#10b981'">
+        </div>
+      </div>
+      <p style="color:#64748b; font-size:0.75rem; margin-top:0.5rem; text-align:right;">
+        {{ pressupost - totalGastat | number:'1.2-2' }}€ restants
+      </p>
+    </div>
+  }
+
+  <!-- ── Info ADMIN ── -->
+  @if (perfil === 'admin') {
+    <div class="card" style="margin-bottom:1.5rem; border-left:4px solid #ef4444;">
+      <h3 style="font-size:1rem; font-weight:600; color:#e2e8f0; margin-bottom:1rem;">🛡️ Permisos d'Administrador</h3>
+      <div style="display:flex; flex-direction:column; gap:0.5rem;">
+        <div style="color:#94a3b8; font-size:0.875rem;">✅ Crear, editar i eliminar usuaris</div>
+        <div style="color:#94a3b8; font-size:0.875rem;">✅ Aprovar i rebutjar despeses</div>
+        <div style="color:#94a3b8; font-size:0.875rem;">✅ Gestionar pressupostos</div>
+        <div style="color:#94a3b8; font-size:0.875rem;">✅ Veure totes les despeses i fulles</div>
+        <div style="color:#94a3b8; font-size:0.875rem;">✅ Accés complet al sistema</div>
+      </div>
+      <div style="margin-top:1rem;">
+        <button (click)="router.navigate(['/admin'])" class="btn btn-primary" style="padding:0.5rem 1.25rem;">
+          ⚙️ Anar a Administració
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- ── Info VALIDADOR ── -->
+  @if (perfil === 'validador') {
+    <div class="card" style="margin-bottom:1.5rem; border-left:4px solid #f59e0b;">
+      <h3 style="font-size:1rem; font-weight:600; color:#e2e8f0; margin-bottom:1rem;">✅ Permisos de Validador</h3>
+      <div style="display:flex; flex-direction:column; gap:0.5rem;">
+        <div style="color:#94a3b8; font-size:0.875rem;">✅ Aprovar i rebutjar despeses</div>
+        <div style="color:#94a3b8; font-size:0.875rem;">✅ Veure totes les despeses i fulles</div>
+        <div style="color:#94a3b8; font-size:0.875rem;">✅ Gestionar pressupostos d'usuaris</div>
+        <div style="color:#94a3b8; font-size:0.875rem;">❌ No pot crear ni eliminar usuaris</div>
+      </div>
+    </div>
+  }
+
+  <!-- ── Accions ── -->
+  <div class="card">
+    <h3 style="font-size:1rem; font-weight:600; color:#e2e8f0; margin-bottom:1rem;">⚡ Accions ràpides</h3>
+    <div style="display:flex; flex-wrap:wrap; gap:0.75rem;">
+      <button (click)="router.navigate(['/despeses'])" class="btn btn-secondary">
+        📋 Les meves despeses
+      </button>
+      @if (perfil === 'usuari') {
+        <button (click)="router.navigate(['/nova-despesa'])" class="btn btn-primary">
+          ➕ Nova despesa
+        </button>
+        <button (click)="router.navigate(['/fulles'])" class="btn btn-secondary">
+          📁 Fulles de despeses
+        </button>
+      }
+      @if (perfil === 'admin') {
+        <button (click)="router.navigate(['/admin'])" class="btn btn-primary">
+          ⚙️ Administració
+        </button>
+      }
+      <button (click)="logout()" class="btn btn-danger" style="margin-left:auto;">
+        🚪 Tancar sessió
+      </button>
+    </div>
+  </div>
+
+</div>

@@ -36,7 +36,6 @@ export class DashboardComponent implements OnInit {
 
   pestanya: 'tots' | 'tiquets' | 'factures' = 'tots';
 
-  // ✅ NOU: ordenació per columna
   sortColumn: string = '';
   sortDirection: 'asc' | 'desc' = 'asc';
 
@@ -46,15 +45,9 @@ export class DashboardComponent implements OnInit {
   public router = inject(Router);
 
   ngOnInit() {
-    if (!isPlatformBrowser(this.platformId)) {
-      this.loading = false;
-      return;
-    }
+    if (!isPlatformBrowser(this.platformId)) { this.loading = false; return; }
     const token = localStorage.getItem('token');
-    if (!token) {
-      this.router.navigate(['/login']);
-      return;
-    }
+    if (!token) { this.router.navigate(['/login']); return; }
     this.perfil = localStorage.getItem('perfil') || 'usuari';
     this.nomUsuari = localStorage.getItem('nom') || '';
     this.loadDespeses();
@@ -62,28 +55,26 @@ export class DashboardComponent implements OnInit {
     this.loadNotificacions();
   }
 
-  get esValidador(): boolean {
-    return this.perfil === 'validador' || this.perfil === 'admin';
+  get esValidador(): boolean { return this.perfil === 'validador' || this.perfil === 'admin'; }
+  get esAdmin(): boolean { return this.perfil === 'admin'; }
+
+  // ── Stats getters ──
+  get totalImportMes(): number {
+    return this.despeses.reduce((acc, d) => acc + (d.importTotal || 0), 0);
+  }
+  countEstat(estat: string): number {
+    return this.despeses.filter(d => d.estat === estat).length;
   }
 
-  get esAdmin(): boolean {
-    return this.perfil === 'admin';
-  }
-
-  // ✅ NOU: getter que retorna les despeses ordenades
   get despesesMostrades(): any[] {
     let llista: any[] = [];
     if (this.pestanya === 'tiquets') llista = this.tiquets;
     else if (this.pestanya === 'factures') llista = this.factures;
     else llista = this.despeses;
-
     if (!this.sortColumn) return llista;
-
     return [...llista].sort((a, b) => {
       let valA = a[this.sortColumn];
       let valB = b[this.sortColumn];
-
-      // Tractament especial per tipus de dades
       if (this.sortColumn === 'data' || this.sortColumn === 'createdAt') {
         valA = valA ? new Date(valA).getTime() : 0;
         valB = valB ? new Date(valB).getTime() : 0;
@@ -97,14 +88,12 @@ export class DashboardComponent implements OnInit {
         valA = valA?.toLowerCase() || '';
         valB = valB?.toLowerCase() || '';
       }
-
       if (valA < valB) return this.sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return this.sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
   }
 
-  // ✅ NOU: canvia columna i direcció d'ordenació
   sortBy(column: string) {
     if (this.sortColumn === column) {
       this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
@@ -115,7 +104,6 @@ export class DashboardComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
-  // ✅ NOU: retorna la icona d'ordenació per a cada columna
   sortIcon(column: string): string {
     if (this.sortColumn !== column) return '↕';
     return this.sortDirection === 'asc' ? '↑' : '↓';
@@ -133,12 +121,7 @@ export class DashboardComponent implements OnInit {
         this.cdr.detectChanges();
       },
       error: (err: any) => {
-        console.error('ERROR carregant despeses:', err);
-        if (err.status === 401 || err.status === 403) {
-          localStorage.clear();
-          this.router.navigate(['/login']);
-          return;
-        }
+        if (err.status === 401 || err.status === 403) { localStorage.clear(); this.router.navigate(['/login']); return; }
         this.error = 'Error carregant despeses';
         this.loading = false;
         this.cdr.detectChanges();
@@ -163,10 +146,7 @@ export class DashboardComponent implements OnInit {
   loadNotificacions() {
     if (!this.esValidador) return;
     this.despesaService.getNotificacions().subscribe({
-      next: (res: any) => {
-        this.notificacions = res.count;
-        this.cdr.detectChanges();
-      },
+      next: (res: any) => { this.notificacions = res.count; this.cdr.detectChanges(); },
       error: () => {}
     });
   }
@@ -193,8 +173,7 @@ export class DashboardComponent implements OnInit {
         this.notificacions = Math.max(0, this.notificacions - 1);
         this.mostrarNotificacions = false;
         this.cdr.detectChanges();
-      },
-      error: (err: any) => console.error('Error aprovant:', err)
+      }
     });
   }
 
@@ -206,8 +185,7 @@ export class DashboardComponent implements OnInit {
         this.notificacions = Math.max(0, this.notificacions - 1);
         this.mostrarNotificacions = false;
         this.cdr.detectChanges();
-      },
-      error: (err: any) => console.error('Error rebutjant:', err)
+      }
     });
   }
 
@@ -222,8 +200,7 @@ export class DashboardComponent implements OnInit {
         this.notificacions = Math.max(0, this.notificacions - 1);
         this.mostrarNotificacions = false;
         this.cdr.detectChanges();
-      },
-      error: (err: any) => console.error('Error rebutjant:', err)
+      }
     });
   }
 
@@ -236,42 +213,31 @@ export class DashboardComponent implements OnInit {
           this.tiquets = this.tiquets.filter(d => d.id !== despesa.id);
           this.factures = this.factures.filter(d => d.id !== despesa.id);
           this.cdr.detectChanges();
-        },
-        error: (err: any) => console.error('Error eliminant:', err)
+        }
       });
     }
   }
 
   exportarCSV() {
-    const headers = ['Tipus', 'Proveïdor', 'Import', 'Data', 'Data Creació', 'Concepte', 'Categoria', 'Estat', 'Usuari', 'Comentari'];
+    const headers = ['Tipus', 'Proveïdor', 'Import', 'Data', 'Concepte', 'Categoria', 'Estat', 'Usuari', 'Comentari'];
     const files = this.despesesMostrades.map(d => [
-      d.tipusDocument || 'tiquet',
-      d.proveidor,
-      d.importTotal,
+      d.tipusDocument || 'tiquet', d.proveidor, d.importTotal,
       new Date(d.data).toLocaleDateString('ca'),
-      d.createdAt ? new Date(d.createdAt).toLocaleString('ca') : '-',
-      d.concepte,
-      d.categoria,
-      d.estat,
-      d.usuari?.nom || '-',
-      d.comentari || ''
+      d.concepte, d.categoria, d.estat,
+      d.usuari?.nom || '-', d.comentari || ''
     ]);
-    const contingut = [headers, ...files]
-      .map(fila => fila.map(cel => `"${cel}"`).join(','))
-      .join('\n');
+    const contingut = [headers, ...files].map(f => f.map(c => `"${c}"`).join(',')).join('\n');
     const blob = new Blob([contingut], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${this.pestanya}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `despeses_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
 
   logout() {
-    if (isPlatformBrowser(this.platformId)) {
-      localStorage.clear();
-    }
+    if (isPlatformBrowser(this.platformId)) localStorage.clear();
     this.router.navigate(['/login']);
   }
 }
