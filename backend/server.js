@@ -212,6 +212,11 @@ app.delete("/users/:id", authenticate, requirePerfil('admin'), async (req, res) 
     const id = parseInt(req.params.id)
     if (id === req.user.id)
       return res.status(400).json({ error: "No pots eliminar el teu propi compte" })
+    
+    // Delete related records first to avoid foreign key constraint
+    await prisma.despesa.deleteMany({ where: { usuariId: id } })
+    await prisma.FullaDespesa.deleteMany({ where: { usuariId: id } })
+    
     await prisma.usuari.delete({ where: { id } })
     res.json({ message: "Usuari eliminat correctament" })
   } catch (error) {

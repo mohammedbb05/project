@@ -347,11 +347,44 @@ tbody tr:last-child td { border-bottom: none; }
 .date-cell { color: #6b7280; font-size: 0.8rem; white-space: nowrap; font-variant-numeric: tabular-nums; position: relative; display: inline-flex; align-items: center; gap: 0.3rem; cursor: default; }
 .date-cell::after { content: '●'; font-size: 0.35rem; color: #3b82f6; vertical-align: super; opacity: 0.7; }
 .date-wrapper { position: relative; display: inline-block; }
-.date-wrapper:hover .date-tooltip { opacity: 1; visibility: visible; transform: translateY(0); }
-.date-tooltip { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%) translateY(4px); background: #1a2035; border: 1px solid #2d3a5a; border-radius: 8px; padding: 0.5rem 0.75rem; white-space: nowrap; font-size: 0.7rem; color: #94a3b8; z-index: 100; opacity: 0; visibility: hidden; transition: all 0.15s ease; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
 .date-tooltip strong { display: block; color: #60a5fa; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.2rem; }
-.date-tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #2d3a5a; }
+.date-wrapper:hover .date-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
 
+.date-tooltip {
+  position: absolute;
+  top: calc(100% + 6px);      /* ← was: bottom: calc(100% + 6px) */
+  bottom: auto;                /* ← add this to cancel any bottom offset */
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);  /* ← was: translateY(4px) */
+  background: #1a2035;
+  border: 1px solid #2d3a5a;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  white-space: nowrap;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.15s ease;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.date-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;                /* ← was: top: 100% */
+  top: auto;                   /* ← add this */
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-bottom-color: #2d3a5a;  /* ← was: border-top-color */
+}
 /* ─── CATEGORIA ─── */
 .categoria-pill { background: #111827; color: #6b7280; border: 1px solid #1f2937; padding: 0.2rem 0.55rem; border-radius: 6px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
 

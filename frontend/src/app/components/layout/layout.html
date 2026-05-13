@@ -16,9 +16,6 @@
     <div class="sidebar-section-label">PRINCIPAL</div>
     <nav class="sidebar-nav">
       <a class="sidebar-link" [class.active]="router.url.startsWith('/despeses')" (click)="router.navigate(['/despeses'])">
-        <span class="sidebar-link-icon">📋</span> Dashboard
-      </a>
-      <a class="sidebar-link" [class.active]="router.url.startsWith('/despeses')" (click)="router.navigate(['/despeses'])">
         <span class="sidebar-link-icon">💳</span> Despeses
       </a>
       <a class="sidebar-link" [class.active]="router.url.startsWith('/fulles')" (click)="router.navigate(['/fulles'])">
@@ -37,9 +34,6 @@
     @if (esValidador) {
       <div class="sidebar-section-label">ADMINISTRACIÓ</div>
       <nav class="sidebar-nav">
-        <a class="sidebar-link" [class.active]="router.url.startsWith('/admin')" (click)="router.navigate(['/admin'])">
-          <span class="sidebar-link-icon">👥</span> Usuaris
-        </a>
         <a class="sidebar-link" [class.active]="router.url.startsWith('/admin')" (click)="router.navigate(['/admin'])">
           <span class="sidebar-link-icon">⚙️</span> Configuració
         </a>
